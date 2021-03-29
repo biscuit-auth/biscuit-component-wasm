@@ -1,5 +1,5 @@
 {
-  "name": "biscuit-component-wasm",
+  "name": "@clevercloud/biscuit-component-wasm",
   "collaborators": [
     "Geoffroy Couprie <geoffroy.couprie@clever-cloud.com>"
   ],
