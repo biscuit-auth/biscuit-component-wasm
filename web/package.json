@@ -1,0 +1,17 @@
+{
+  "name": "biscuit-component-wasm",
+  "collaborators": [
+    "Geoffroy Couprie <geoffroy.couprie@clever-cloud.com>"
+  ],
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "files": [
+    "biscuit_bg.wasm",
+    "biscuit.js",
+    "snippets",
+    "biscuit.d.ts"
+  ],
+  "module": "biscuit.js",
+  "types": "biscuit.d.ts",
+  "sideEffects": false
+}
