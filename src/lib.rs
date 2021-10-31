@@ -1,11 +1,11 @@
 use wasm_bindgen::prelude::*;
 use biscuit_auth::{
-    crypto::KeyPair,
+    KeyPair,
     error,
     parser::parse_source,
-    token::Biscuit,
-    token::builder,
-    token::verifier::{Verifier, VerifierLimits},
+    Biscuit,
+    builder,
+    Authorizer, AuthorizerLimits,
 };
 use log::*;
 use nom::Offset;
@@ -27,7 +27,7 @@ extern "C" {
 #[derive(Serialize, Deserialize)]
 struct BiscuitQuery {
     pub token_blocks: Vec<String>,
-    pub verifier_code: Option<String>,
+    pub authorizer_code: Option<String>,
     pub query: Option<String>,
 }
 
@@ -35,9 +35,9 @@ struct BiscuitQuery {
 struct BiscuitResult {
     pub token_blocks: Vec<Editor>,
     pub token_content: String,
-    pub verifier_editor: Option<Editor>,
-    pub verifier_result: Option<String>,
-    pub verifier_world: Vec<Fact>,
+    pub authorizer_editor: Option<Editor>,
+    pub authorizer_result: Option<String>,
+    pub authorizer_world: Vec<Fact>,
     pub query_result: Vec<Fact>,
 }
 
@@ -156,7 +156,7 @@ fn execute_inner(query: BiscuitQuery) -> BiscuitResult {
             }
 
             token = token
-                .append_with_rng(&mut rng, &temp_keypair, builder)
+                .append_with_keypair(&temp_keypair, builder)
                 .unwrap();
 
             blocks.push(block);
@@ -171,73 +171,73 @@ fn execute_inner(query: BiscuitQuery) -> BiscuitResult {
         token_opt = Some(token);
     }
 
-    if let Some(verifier_code) = query.verifier_code.as_ref() {
-        let mut verifier = match token_opt {
-            Some(token) => token.verify(root.public()).unwrap(),
-            None => Verifier::new().unwrap(),
+    if let Some(authorizer_code) = query.authorizer_code.as_ref() {
+        let mut authorizer = match token_opt.as_ref() {
+            Some(token) => token.authorizer().unwrap(),
+            None => Authorizer::new().unwrap(),
         };
 
-        biscuit_result.verifier_editor = Some(Editor::default());
-        //info!("verifier source:\n{}", &verifier_code);
+        biscuit_result.authorizer_editor = Some(Editor::default());
+        //info!("authorizer source:\n{}", &authorizer_code);
 
-        let verifier_result;
+        let authorizer_result;
 
-        let res = parse_source(&verifier_code);
+        let res = parse_source(&authorizer_code);
         if let Err(errors) = res {
-            biscuit_result.verifier_result = Some(format!("errors: {:?}", errors));
+            biscuit_result.authorizer_result = Some(format!("errors: {:?}", errors));
             error!("error: {:?}", errors);
-            if let Some(ed) = biscuit_result.verifier_editor.as_mut() {
-                ed.errors = get_parse_errors(&verifier_code, errors);
+            if let Some(ed) = biscuit_result.authorizer_editor.as_mut() {
+                ed.errors = get_parse_errors(&authorizer_code, errors);
             }
         } else {
-            let mut verifier_checks = Vec::new();
-            let mut verifier_policies = Vec::new();
+            let mut authorizer_checks = Vec::new();
+            let mut authorizer_policies = Vec::new();
 
             let (_, parsed) = res.unwrap();
 
             for (_, fact) in parsed.facts.iter() {
-                verifier.add_fact(fact.clone()).unwrap();
+                authorizer.add_fact(fact.clone()).unwrap();
             }
 
             for (_, rule) in parsed.rules.iter() {
-                verifier.add_rule(rule.clone()).unwrap();
+                authorizer.add_rule(rule.clone()).unwrap();
             }
 
             for (i, check) in parsed.checks.iter() {
-                verifier.add_check(check.clone()).unwrap();
-                let position = get_position(&verifier_code, i);
+                authorizer.add_check(check.clone()).unwrap();
+                let position = get_position(&authorizer_code, i);
                 // checks are marked as success until they fail
-                verifier_checks.push((position, true));
+                authorizer_checks.push((position, true));
             }
 
             for (i, policy) in parsed.policies.iter() {
-                verifier.add_policy(policy.clone()).unwrap();
-                let position = get_position(&verifier_code, i);
+                authorizer.add_policy(policy.clone()).unwrap();
+                let position = get_position(&authorizer_code, i);
                 // checks are marked as success until they fail
-                verifier_policies.push(position);
+                authorizer_policies.push(position);
             }
 
-            let mut limits = VerifierLimits::default();
+            let mut limits = AuthorizerLimits::default();
             limits.max_time = std::time::Duration::from_secs(2);
-            verifier_result = verifier.verify_with_limits(limits);
+            authorizer_result = authorizer.authorize_with_limits(limits);
 
-            let (mut facts, _, _) = verifier.dump();
-            biscuit_result.verifier_world = facts.drain(..).map(|mut fact| {
+            let (mut facts, _, _, _) = authorizer.dump();
+            biscuit_result.authorizer_world = facts.drain(..).map(|mut fact| {
                 Fact {
-                    name: fact.0.name,
-                    terms: fact.0.ids.drain(..).map(|id| id.to_string()).collect(),
+                    name: fact.predicate.name,
+                    terms: fact.predicate.terms.drain(..).map(|term| term.to_string()).collect(),
                 }
             }).collect();
 
-            match &verifier_result {
+            match &authorizer_result {
                 Err(error::Token::FailedLogic(error::Logic::FailedChecks(v))) => {
                     for e in v.iter() {
                         match e {
-                            error::FailedCheck::Verifier(error::FailedVerifierCheck {
+                            error::FailedCheck::Authorizer(error::FailedAuthorizerCheck {
                                 check_id, ..
                             }) => {
 
-                                verifier_checks[*check_id as usize].1 = false;
+                                authorizer_checks[*check_id as usize].1 = false;
                             }
                             error::FailedCheck::Block(error::FailedBlockCheck {
                                 block_id,
@@ -255,14 +255,14 @@ fn execute_inner(query: BiscuitQuery) -> BiscuitResult {
                     }
                 },
                 Err(error::Token::FailedLogic(error::Logic::Deny(index))) => {
-                    let position = &verifier_policies[*index];
-                    if let Some(ed) = biscuit_result.verifier_editor.as_mut() {
+                    let position = &authorizer_policies[*index];
+                    if let Some(ed) = biscuit_result.authorizer_editor.as_mut() {
                         ed.markers.push(Marker { ok: false, position: position.clone() });
                     }
                 },
                 Ok(index) => {
-                    let position = &verifier_policies[*index];
-                    if let Some(ed) = biscuit_result.verifier_editor.as_mut() {
+                    let position = &authorizer_policies[*index];
+                    if let Some(ed) = biscuit_result.authorizer_editor.as_mut() {
                         ed.markers.push(Marker { ok: true, position: position.clone() });
                     }
                 },
@@ -283,13 +283,13 @@ fn execute_inner(query: BiscuitQuery) -> BiscuitResult {
                 }
             }
 
-            for (position, result) in verifier_checks.iter() {
-                if let Some(ed) = biscuit_result.verifier_editor.as_mut() {
+            for (position, result) in authorizer_checks.iter() {
+                if let Some(ed) = biscuit_result.authorizer_editor.as_mut() {
                     ed.markers.push(Marker { ok: *result, position: position.clone() });
                 }
             }
 
-            biscuit_result.verifier_result = Some(match &verifier_result {
+            biscuit_result.authorizer_result = Some(match &authorizer_result {
                 Err(e) => format!("Error: {:?}", e),
                 Ok(_) => "Success".to_string(),
             });
@@ -299,7 +299,7 @@ fn execute_inner(query: BiscuitQuery) -> BiscuitResult {
 
                 if !query.is_empty() {
                     let query_result: Result<Vec<builder::Fact>, biscuit_auth::error::Token> =
-                        verifier.query(query.as_str());
+                        authorizer.query(query.as_str());
                     match query_result {
                         Err(e) => {
                             log(&format!("query error: {:?}", e));
@@ -307,8 +307,8 @@ fn execute_inner(query: BiscuitQuery) -> BiscuitResult {
                         Ok(mut facts) => {
                             biscuit_result.query_result = facts.drain(..).map(|mut fact| {
                                 Fact {
-                                    name: fact.0.name,
-                                    terms: fact.0.ids.drain(..).map(|id| id.to_string()).collect(),
+                                    name: fact.predicate.name,
+                                    terms: fact.predicate.terms.drain(..).map(|term| term.to_string()).collect(),
                                 }
                             }).collect();
                         }
