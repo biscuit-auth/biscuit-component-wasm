@@ -10,7 +10,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 wasm-bindgen = { version = "0.2.67", features = ["serde-serialize"] }
-biscuit-auth = { path = "../biscuit-rust", features = ["wasm"] }
+biscuit-auth = { git = "http://github.com/CleverCloud/biscuit-rust", branch = "2.0", features = ["wasm"] }
 rand = "0.7"
 log = "0.4"
 wasm-logger = "0.2"
