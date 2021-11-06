@@ -1,20 +1,20 @@
 {
-  "name": "@clevercloud/biscuit-component-wasm",
+  "name": "biscuit-component-wasm",
   "collaborators": [
-    "Geoffroy Couprie <geoffroy.couprie@clever-cloud.com>"
+    "Geoffroy Couprie <contact@geoffroycouprie.com>"
   ],
   "version": "0.1.0",
   "license": "Apache-2.0",
-  "homepage": "https://github.com/CleverCloud/biscuit-component-wasm",
+  "homepage": "https://github.com/biscuit-auth/biscuit-component-wasm",
   "repository": {
     "type": "git",
-    "url": "https://github.com/CleverCloud/biscuit-component-wasm"
+    "url": "https://github.com/biscuit-auth/biscuit-component-wasm"
   },
   "files": [
     "biscuit_bg.wasm",
     "biscuit.js",
-    "snippets",
-    "biscuit.d.ts"
+    "biscuit.d.ts",
+    "snippets"
   ],
   "module": "biscuit.js",
   "types": "biscuit.d.ts",
