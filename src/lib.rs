@@ -65,6 +65,8 @@ struct SourcePosition {
     pub column_start: usize,
     pub line_end: usize,
     pub column_end: usize,
+    pub start: usize,
+    pub end: usize,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -334,6 +336,7 @@ pub fn run_app() {
 fn get_position(input: &str, span: &str) -> SourcePosition {
     let offset = input.offset(span);
     let prefix = &input.as_bytes()[..offset];
+    let start = offset;
 
     // Count the number of newlines in the first `offset` bytes of input
     let line_start = prefix.iter().filter(|&&b| b == b'\n').count();
@@ -359,6 +362,7 @@ fn get_position(input: &str, span: &str) -> SourcePosition {
 
     let offset = offset + span.len();
     let prefix = &input.as_bytes()[..offset];
+    let end = offset;
 
     // Count the number of newlines in the first `offset` bytes of input
     let line_end = prefix.iter().filter(|&&b| b == b'\n').count();
@@ -387,6 +391,8 @@ fn get_position(input: &str, span: &str) -> SourcePosition {
         column_start,
         line_end,
         column_end,
+        start,
+        end,
     }
 }
 
