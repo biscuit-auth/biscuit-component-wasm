@@ -99,6 +99,7 @@ fn execute_inner(query: BiscuitQuery) -> BiscuitResult {
     let mut blocks = Vec::new();
 
     let mut token_opt = None;
+    let mut has_errors = false;
 
     if !query.token_blocks.is_empty() {
         let mut authority_editor = Editor::default();
@@ -107,6 +108,7 @@ fn execute_inner(query: BiscuitQuery) -> BiscuitResult {
             Err(errors) => {
                 error!("error: {:?}", errors);
                 authority_editor.errors = get_parse_errors(&query.token_blocks[0], errors);
+                has_errors = true;
             },
             Ok((_, authority_parsed)) => {
                 for (_, fact) in authority_parsed.facts.iter() {
@@ -140,6 +142,7 @@ fn execute_inner(query: BiscuitQuery) -> BiscuitResult {
                 Err(errors) => {
                     error!("error: {:?}", errors);
                     editor.errors = get_parse_errors(&code, errors);
+                    has_errors = true;
                 },
                 Ok((_, block_parsed)) => {
                     for (_, fact) in block_parsed.facts.iter() {
@@ -192,7 +195,9 @@ fn execute_inner(query: BiscuitQuery) -> BiscuitResult {
             if let Some(ed) = biscuit_result.authorizer_editor.as_mut() {
                 ed.errors = get_parse_errors(&authorizer_code, errors);
             }
-        } else {
+            has_errors = true;
+        // do not execute if there were parse errors
+        } else if !has_errors {
             let mut authorizer_checks = Vec::new();
             let mut authorizer_policies = Vec::new();
 
