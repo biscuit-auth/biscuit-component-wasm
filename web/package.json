@@ -3,7 +3,7 @@
   "collaborators": [
     "Geoffroy Couprie <contact@geoffroycouprie.com>"
   ],
-  "version": "0.1.2",
+  "version": "0.2.0",
   "license": "Apache-2.0",
   "homepage": "https://github.com/biscuit-auth/biscuit-component-wasm",
   "repository": {
