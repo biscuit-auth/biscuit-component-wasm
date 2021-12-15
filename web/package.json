@@ -1,9 +1,9 @@
 {
-  "name": "biscuit-component-wasm",
+  "name": "@biscuit-auth/biscuit-wasm-support",
   "collaborators": [
     "Geoffroy Couprie <contact@geoffroycouprie.com>"
   ],
-  "version": "0.2.0",
+  "version": "0.2.1",
   "license": "Apache-2.0",
   "homepage": "https://github.com/biscuit-auth/biscuit-component-wasm",
   "repository": {
