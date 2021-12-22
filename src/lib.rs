@@ -1,6 +1,7 @@
 use wasm_bindgen::prelude::*;
 use biscuit_auth::{
     KeyPair,
+    PrivateKey,
     error,
     parser::parse_source,
     Biscuit,
@@ -328,6 +329,91 @@ fn execute_inner(query: BiscuitQuery) -> BiscuitResult {
     }
 
     biscuit_result
+}
+
+#[derive(Serialize, Deserialize)]
+struct GenerateToken {
+    pub token_blocks: Vec<String>,
+    pub private_key: String,
+}
+
+#[wasm_bindgen]
+pub fn generate_token(query: &JsValue) -> Result<String, JsValue> {
+    let query: GenerateToken = query.into_serde().unwrap();
+
+    Ok(generate_token_inner(query).map_err(|e| e.to_string())?)
+}
+
+fn generate_token_inner(query: GenerateToken) -> Result<String, error::Token> {
+    let data = hex::decode(&query.private_key).map_err(|_| error::Token::InternalError)?;
+
+    let keypair = KeyPair::from(PrivateKey::from_bytes(&data)?);
+    let mut builder = Biscuit::builder(&keypair);
+
+    if !query.token_blocks.is_empty() {
+        let mut authority_editor = Editor::default();
+
+        match parse_source(&query.token_blocks[0]) {
+            Err(errors) => {
+                error!("error: {:?}", errors);
+                authority_editor.errors = get_parse_errors(&query.token_blocks[0], errors);
+            },
+            Ok((_, authority_parsed)) => {
+                for (_, fact) in authority_parsed.facts.iter() {
+                    builder.add_authority_fact(fact.clone()).unwrap();
+                }
+
+                for (_, rule) in authority_parsed.rules.iter() {
+                    builder.add_authority_rule(rule.clone()).unwrap();
+                }
+
+                for (i, check) in authority_parsed.checks.iter() {
+                    builder.add_authority_check(check.clone()).unwrap();
+                    let position = get_position(&query.token_blocks[0], i);
+                }
+            }
+        }
+
+        let mut token = builder.build()?;
+
+        for (i, code) in (&query.token_blocks[1..]).iter().enumerate() {
+            let mut editor = Editor::default();
+            let mut block = Block::default();
+
+            let temp_keypair = KeyPair::new();
+            let mut builder = token.create_block();
+
+            match parse_source(&code) {
+                Err(errors) => {
+                    error!("error: {:?}", errors);
+                    editor.errors = get_parse_errors(&code, errors);
+                },
+                Ok((_, block_parsed)) => {
+                    for (_, fact) in block_parsed.facts.iter() {
+                        builder.add_fact(fact.clone()).unwrap();
+                    }
+
+                    for (_, rule) in block_parsed.rules.iter() {
+                        builder.add_rule(rule.clone()).unwrap();
+                    }
+
+                    for (i, check) in block_parsed.checks.iter() {
+                        builder.add_check(check.clone()).unwrap();
+                        let position = get_position(&code, i);
+                        block.checks.push((position, true));
+                    }
+                }
+            }
+
+            token = token
+                .append_with_keypair(&temp_keypair, builder)?;
+        }
+
+        Ok(token.to_base64()?)
+    } else {
+        Err(error::Token::InternalError)
+    }
+
 }
 
 #[wasm_bindgen(start)]
