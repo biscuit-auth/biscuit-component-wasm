@@ -10,7 +10,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 wasm-bindgen = { version = "0.2.67", features = ["serde-serialize"] }
-biscuit-auth = { version = "2.0.0-beta3", features = ["wasm"] }
+biscuit-auth = { version = "2.0.0-beta5", features = ["wasm"] }
 rand = "0.7"
 log = "0.4"
 wasm-logger = "0.2"
