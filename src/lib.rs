@@ -3,7 +3,7 @@ use biscuit_auth::{
     KeyPair,
     PrivateKey,
     error,
-    parser::parse_source,
+    parser::{self, parse_source},
     Biscuit,
     builder,
     Authorizer, AuthorizerLimits,
@@ -33,14 +33,29 @@ struct BiscuitQuery {
     pub query: Option<String>,
 }
 
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 struct BiscuitResult {
     pub token_blocks: Vec<Editor>,
     pub token_content: String,
     pub authorizer_editor: Option<Editor>,
-    pub authorizer_result: Option<String>,
+    pub parser_result: Result<(), Vec<String>>,
+    pub authorizer_result: Result<usize, error::Token>,
     pub authorizer_world: Vec<Fact>,
     pub query_result: Vec<Fact>,
+}
+
+impl Default for BiscuitResult {
+   fn default() -> Self {
+       BiscuitResult {
+           token_blocks:Vec::new(),
+           token_content: String::new(),
+           authorizer_editor: None,
+           parser_result: Ok(()),
+           authorizer_result: Ok(0),
+           authorizer_world: Vec::new(),
+           query_result: Vec::new(),
+       }
+   }
 }
 
 #[derive(Default, Serialize, Deserialize)]
@@ -191,8 +206,7 @@ fn execute_inner(query: BiscuitQuery) -> BiscuitResult {
 
         let res = parse_source(&authorizer_code);
         if let Err(errors) = res {
-            biscuit_result.authorizer_result = Some(format!("errors: {:?}", errors));
-            error!("error: {:?}", errors);
+            biscuit_result.parser_result = Err(errors.iter().map(|e| format!("{:?}", e)).collect());
             if let Some(ed) = biscuit_result.authorizer_editor.as_mut() {
                 ed.errors = get_parse_errors(&authorizer_code, errors);
             }
@@ -298,10 +312,7 @@ fn execute_inner(query: BiscuitQuery) -> BiscuitResult {
                 }
             }
 
-            biscuit_result.authorizer_result = Some(match &authorizer_result {
-                Err(e) => format!("Error: {:?}", e),
-                Ok(_) => "Success".to_string(),
-            });
+            biscuit_result.authorizer_result = authorizer_result;
 
             if let Some(query) = query.query.as_ref() {
                 log(&format!("got query content: {}", query));
