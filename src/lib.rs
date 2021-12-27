@@ -3,7 +3,7 @@ use biscuit_auth::{
     KeyPair,
     PrivateKey,
     error,
-    parser::{self, parse_source},
+    parser::{parse_block_source, parse_source, SourceResult},
     Biscuit,
     builder,
     Authorizer, AuthorizerLimits,
@@ -359,26 +359,61 @@ fn execute_inner(query: BiscuitQuery) -> Result<BiscuitResult, ParseErrors> {
 }
 
 #[derive(Serialize, Deserialize)]
-struct GenerateToken {
+pub struct GenerateToken {
     pub token_blocks: Vec<String>,
     pub private_key: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub enum GenerateTokenError {
+    Parse(ParseErrors),
+    Biscuit(error::Token),
 }
 
 #[wasm_bindgen]
 pub fn generate_token(query: &JsValue) -> Result<String, JsValue> {
     let query: GenerateToken = query.into_serde().unwrap();
 
-    Ok(generate_token_inner(query).map_err(|e| e.to_string())?)
+    generate_token_inner(query).map_err(|e| JsValue::from_serde(&e).unwrap())
 }
 
-fn generate_token_inner(query: GenerateToken) -> Result<String, error::Token> {
+fn generate_token_inner(query: GenerateToken) -> Result<String, GenerateTokenError> {
+    let mut parse_errors = ParseErrors::new();
+    let mut blocks = Vec::new();
+    let mut has_errors = false;
+
+    if query.token_blocks.is_empty() {
+        return Err(GenerateTokenError::Biscuit(error::Token::InternalError));
+    }
+
+    for code in query.token_blocks.iter() {
+        match parse_block_source(&code) {
+            Err(errors) => {
+                parse_errors.blocks.push(get_parse_errors(&code, &errors));
+                has_errors = true;
+            }
+            Ok(block) => {
+                blocks.push(block);
+                parse_errors.blocks.push(Vec::new());
+            }
+        }
+    }
+
+    if has_errors {
+        Err(GenerateTokenError::Parse(parse_errors))
+    } else {
+        generate_token_from_blocks(&query, blocks).map_err(GenerateTokenError::Biscuit)
+    }
+}
+
+fn generate_token_from_blocks(query: &GenerateToken, blocks: Vec<SourceResult>) -> Result<String, error::Token> {
     let data = hex::decode(&query.private_key).map_err(|_| error::Token::InternalError)?;
 
     let keypair = KeyPair::from(PrivateKey::from_bytes(&data)?);
     let mut builder = Biscuit::builder(&keypair);
 
-    if !query.token_blocks.is_empty() {
-        let authority_parsed = parse_source(&query.token_blocks[0])?;
+        let authority_parsed = &blocks[0];
+
         for (_, fact) in authority_parsed.facts.iter() {
             builder.add_authority_fact(fact.clone()).unwrap();
         }
@@ -393,11 +428,10 @@ fn generate_token_inner(query: GenerateToken) -> Result<String, error::Token> {
 
         let mut token = builder.build()?;
 
-        for (_, code) in (&query.token_blocks[1..]).iter().enumerate() {
+        for block_parsed in (&blocks[1..]).iter() {
             let temp_keypair = KeyPair::new();
             let mut builder = token.create_block();
 
-            let block_parsed = parse_source(&code)?;
             for (_, fact) in block_parsed.facts.iter() {
                 builder.add_fact(fact.clone()).unwrap();
             }
@@ -412,13 +446,9 @@ fn generate_token_inner(query: GenerateToken) -> Result<String, error::Token> {
 
             token = token
                 .append_with_keypair(&temp_keypair, builder)?;
+
         }
-
         Ok(token.to_base64()?)
-    } else {
-        Err(error::Token::InternalError)
-    }
-
 }
 
 #[wasm_bindgen(start)]
