@@ -1,19 +1,14 @@
-use wasm_bindgen::prelude::*;
 use biscuit_auth::{
-    KeyPair,
-    PrivateKey,
-    error,
+    builder, error,
     parser::{parse_block_source, parse_source, SourceResult},
-    Biscuit,
-    builder,
-    Authorizer, AuthorizerLimits,
-    UnverifiedBiscuit,
+    Authorizer, AuthorizerLimits, Biscuit, KeyPair, PrivateKey, UnverifiedBiscuit,
 };
 use log::*;
 use nom::Offset;
 use rand::prelude::*;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::default::Default;
+use wasm_bindgen::prelude::*;
 
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
@@ -44,23 +39,22 @@ pub struct BiscuitResult {
 }
 
 impl Default for BiscuitResult {
-   fn default() -> Self {
-       BiscuitResult {
-           token_blocks:Vec::new(),
-           token_content: String::new(),
-           authorizer_editor: None,
-           authorizer_result: Ok(0),
-           authorizer_world: Vec::new(),
-           query_result: Vec::new(),
-       }
-   }
+    fn default() -> Self {
+        BiscuitResult {
+            token_blocks: Vec::new(),
+            token_content: String::new(),
+            authorizer_editor: None,
+            authorizer_result: Ok(0),
+            authorizer_world: Vec::new(),
+            query_result: Vec::new(),
+        }
+    }
 }
 
 #[derive(Default, Serialize, Deserialize)]
 pub struct Editor {
     pub markers: Vec<Marker>,
 }
-
 
 #[derive(Serialize, Deserialize)]
 pub struct Marker {
@@ -135,9 +129,11 @@ fn execute_inner(query: BiscuitQuery) -> Result<BiscuitResult, ParseErrors> {
         match parse_block_source(&query.token_blocks[0]) {
             Err(errors) => {
                 error!("error: {:?}", errors);
-                parse_errors.blocks.push(get_parse_errors(&query.token_blocks[0], &errors));
+                parse_errors
+                    .blocks
+                    .push(get_parse_errors(&query.token_blocks[0], &errors));
                 has_errors = true;
-            },
+            }
             Ok(authority_parsed) => {
                 parse_errors.blocks.push(Vec::new());
 
@@ -172,7 +168,7 @@ fn execute_inner(query: BiscuitQuery) -> Result<BiscuitResult, ParseErrors> {
                     error!("error: {:?}", errors);
                     parse_errors.blocks.push(get_parse_errors(&code, &errors));
                     has_errors = true;
-                },
+                }
                 Ok(block_parsed) => {
                     parse_errors.blocks.push(Vec::new());
 
@@ -192,9 +188,7 @@ fn execute_inner(query: BiscuitQuery) -> Result<BiscuitResult, ParseErrors> {
                 }
             }
 
-            token = token
-                .append_with_keypair(&temp_keypair, builder)
-                .unwrap();
+            token = token.append_with_keypair(&temp_keypair, builder).unwrap();
 
             blocks.push(block);
             biscuit_result.token_blocks.push(Editor::default());
@@ -262,21 +256,27 @@ fn execute_inner(query: BiscuitQuery) -> Result<BiscuitResult, ParseErrors> {
         authorizer_result = authorizer.authorize_with_limits(limits);
 
         let (mut facts, _, _, _) = authorizer.dump();
-        biscuit_result.authorizer_world = facts.drain(..).map(|mut fact| {
-            Fact {
+        biscuit_result.authorizer_world = facts
+            .drain(..)
+            .map(|mut fact| Fact {
                 name: fact.predicate.name,
-                terms: fact.predicate.terms.drain(..).map(|term| term.to_string()).collect(),
-            }
-        }).collect();
+                terms: fact
+                    .predicate
+                    .terms
+                    .drain(..)
+                    .map(|term| term.to_string())
+                    .collect(),
+            })
+            .collect();
 
         match &authorizer_result {
             Err(error::Token::FailedLogic(error::Logic::FailedChecks(v))) => {
                 for e in v.iter() {
                     match e {
                         error::FailedCheck::Authorizer(error::FailedAuthorizerCheck {
-                            check_id, ..
+                            check_id,
+                            ..
                         }) => {
-
                             authorizer_checks[*check_id as usize].1 = false;
                         }
                         error::FailedCheck::Block(error::FailedBlockCheck {
@@ -293,39 +293,54 @@ fn execute_inner(query: BiscuitQuery) -> Result<BiscuitResult, ParseErrors> {
                         }
                     }
                 }
-            },
+            }
             Err(error::Token::FailedLogic(error::Logic::Deny(index))) => {
                 let position = &authorizer_policies[*index];
                 if let Some(ed) = biscuit_result.authorizer_editor.as_mut() {
-                    ed.markers.push(Marker { ok: false, position: position.clone() });
+                    ed.markers.push(Marker {
+                        ok: false,
+                        position: position.clone(),
+                    });
                 }
-            },
+            }
             Ok(index) => {
                 let position = &authorizer_policies[*index];
                 if let Some(ed) = biscuit_result.authorizer_editor.as_mut() {
-                    ed.markers.push(Marker { ok: true, position: position.clone() });
+                    ed.markers.push(Marker {
+                        ok: true,
+                        position: position.clone(),
+                    });
                 }
-            },
-            _ => {},
+            }
+            _ => {}
         }
 
         for (position, result) in authority.checks.iter() {
             if let Some(ed) = biscuit_result.token_blocks.get_mut(0) {
-                ed.markers.push(Marker { ok: *result, position: position.clone() });
+                ed.markers.push(Marker {
+                    ok: *result,
+                    position: position.clone(),
+                });
             }
         }
 
         for (id, block) in blocks.iter().enumerate() {
             for (position, result) in block.checks.iter() {
-                if let Some(ed) = biscuit_result.token_blocks.get_mut(id+1) {
-                    ed.markers.push(Marker { ok: *result, position: position.clone() });
+                if let Some(ed) = biscuit_result.token_blocks.get_mut(id + 1) {
+                    ed.markers.push(Marker {
+                        ok: *result,
+                        position: position.clone(),
+                    });
                 }
             }
         }
 
         for (position, result) in authorizer_checks.iter() {
             if let Some(ed) = biscuit_result.authorizer_editor.as_mut() {
-                ed.markers.push(Marker { ok: *result, position: position.clone() });
+                ed.markers.push(Marker {
+                    ok: *result,
+                    position: position.clone(),
+                });
             }
         }
 
@@ -340,19 +355,24 @@ fn execute_inner(query: BiscuitQuery) -> Result<BiscuitResult, ParseErrors> {
                 match query_result {
                     Err(e) => {
                         log(&format!("query error: {:?}", e));
-                    },
+                    }
                     Ok(mut facts) => {
-                        biscuit_result.query_result = facts.drain(..).map(|mut fact| {
-                            Fact {
+                        biscuit_result.query_result = facts
+                            .drain(..)
+                            .map(|mut fact| Fact {
                                 name: fact.predicate.name,
-                                terms: fact.predicate.terms.drain(..).map(|term| term.to_string()).collect(),
-                            }
-                        }).collect();
+                                terms: fact
+                                    .predicate
+                                    .terms
+                                    .drain(..)
+                                    .map(|term| term.to_string())
+                                    .collect(),
+                            })
+                            .collect();
                     }
                 }
             }
         }
-
     }
 
     Ok(biscuit_result)
@@ -406,49 +426,50 @@ fn generate_token_inner(query: GenerateToken) -> Result<String, GenerateTokenErr
     }
 }
 
-fn generate_token_from_blocks(query: &GenerateToken, blocks: Vec<SourceResult>) -> Result<String, error::Token> {
+fn generate_token_from_blocks(
+    query: &GenerateToken,
+    blocks: Vec<SourceResult>,
+) -> Result<String, error::Token> {
     let data = hex::decode(&query.private_key).map_err(|_| error::Token::InternalError)?;
 
     let keypair = KeyPair::from(PrivateKey::from_bytes(&data)?);
     let mut builder = Biscuit::builder(&keypair);
 
-        let authority_parsed = &blocks[0];
+    let authority_parsed = &blocks[0];
 
-        for (_, fact) in authority_parsed.facts.iter() {
-            builder.add_authority_fact(fact.clone()).unwrap();
+    for (_, fact) in authority_parsed.facts.iter() {
+        builder.add_authority_fact(fact.clone()).unwrap();
+    }
+
+    for (_, rule) in authority_parsed.rules.iter() {
+        builder.add_authority_rule(rule.clone()).unwrap();
+    }
+
+    for (_, check) in authority_parsed.checks.iter() {
+        builder.add_authority_check(check.clone()).unwrap();
+    }
+
+    let mut token = builder.build()?;
+
+    for block_parsed in (&blocks[1..]).iter() {
+        let temp_keypair = KeyPair::new();
+        let mut builder = token.create_block();
+
+        for (_, fact) in block_parsed.facts.iter() {
+            builder.add_fact(fact.clone()).unwrap();
         }
 
-        for (_, rule) in authority_parsed.rules.iter() {
-            builder.add_authority_rule(rule.clone()).unwrap();
+        for (_, rule) in block_parsed.rules.iter() {
+            builder.add_rule(rule.clone()).unwrap();
         }
 
-        for (_, check) in authority_parsed.checks.iter() {
-            builder.add_authority_check(check.clone()).unwrap();
+        for (_, check) in block_parsed.checks.iter() {
+            builder.add_check(check.clone()).unwrap();
         }
 
-        let mut token = builder.build()?;
-
-        for block_parsed in (&blocks[1..]).iter() {
-            let temp_keypair = KeyPair::new();
-            let mut builder = token.create_block();
-
-            for (_, fact) in block_parsed.facts.iter() {
-                builder.add_fact(fact.clone()).unwrap();
-            }
-
-            for (_, rule) in block_parsed.rules.iter() {
-                builder.add_rule(rule.clone()).unwrap();
-            }
-
-            for (_, check) in block_parsed.checks.iter() {
-                builder.add_check(check.clone()).unwrap();
-            }
-
-            token = token
-                .append_with_keypair(&temp_keypair, builder)?;
-
-        }
-        Ok(token.to_base64()?)
+        token = token.append_with_keypair(&temp_keypair, builder)?;
+    }
+    Ok(token.to_base64()?)
 }
 
 #[wasm_bindgen(start)]
@@ -546,9 +567,16 @@ fn get_parse_errors(input: &str, errors: &[biscuit_auth::parser::Error]) -> Vec<
     error!("got errors: {:?}", errors);
     for e in errors.iter() {
         let position = get_position(input, e.input);
-        let message = e.message.as_ref().cloned().unwrap_or_else(|| format!("error: {:?}", e.code));
+        let message = e
+            .message
+            .as_ref()
+            .cloned()
+            .unwrap_or_else(|| format!("error: {:?}", e.code));
 
-        error!("position for error({:?}) \"{}\": {:?}", e.code, message, position);
+        error!(
+            "position for error({:?}) \"{}\": {:?}",
+            e.code, message, position
+        );
         res.push(ParseError { message, position });
     }
 
@@ -583,7 +611,7 @@ fn parse_token_inner(query: ParseTokenQuery) -> ParseResult {
             let mut res = ParseResult::default();
             res.error = Some(e.to_string());
             return res;
-        },
+        }
         Ok(t) => t,
     };
 
@@ -592,7 +620,11 @@ fn parse_token_inner(query: ParseTokenQuery) -> ParseResult {
         token_blocks.push(token.print_block_source(i).unwrap());
     }
 
-    let revocation_ids = token.revocation_identifiers().into_iter().map(|v| hex::encode(v)).collect();
+    let revocation_ids = token
+        .revocation_identifiers()
+        .into_iter()
+        .map(|v| hex::encode(v))
+        .collect();
     ParseResult {
         token_blocks,
         //key: "".to_string(),
