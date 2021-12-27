@@ -132,7 +132,7 @@ fn execute_inner(query: BiscuitQuery) -> Result<BiscuitResult, ParseErrors> {
     let mut parse_errors = ParseErrors::new();
 
     if !query.token_blocks.is_empty() {
-        match parse_source(&query.token_blocks[0]) {
+        match parse_block_source(&query.token_blocks[0]) {
             Err(errors) => {
                 error!("error: {:?}", errors);
                 parse_errors.blocks.push(get_parse_errors(&query.token_blocks[0], &errors));
@@ -167,7 +167,7 @@ fn execute_inner(query: BiscuitQuery) -> Result<BiscuitResult, ParseErrors> {
             let temp_keypair = KeyPair::new_with_rng(&mut rng);
             let mut builder = token.create_block();
 
-            match parse_source(&code) {
+            match parse_block_source(&code) {
                 Err(errors) => {
                     error!("error: {:?}", errors);
                     parse_errors.blocks.push(get_parse_errors(&code, &errors));
