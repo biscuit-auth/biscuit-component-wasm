@@ -157,7 +157,7 @@ fn execute_inner(query: BiscuitQuery) -> Result<BiscuitResult, ParseErrors> {
 
         let mut token = builder.build_with_rng(&mut rng).unwrap();
 
-        for (i, code) in (&query.token_blocks[1..]).iter().enumerate() {
+        for code in (&query.token_blocks[1..]).iter() {
             let mut block = Block::default();
 
             let temp_keypair = KeyPair::new_with_rng(&mut rng);
@@ -194,9 +194,6 @@ fn execute_inner(query: BiscuitQuery) -> Result<BiscuitResult, ParseErrors> {
             biscuit_result.token_blocks.push(Editor::default());
         }
 
-        let v = token.to_vec().unwrap();
-        //self.serialized = Some(base64::encode_config(&v[..], base64::URL_SAFE));
-        //self.biscuit = Some(token);
         biscuit_result.token_content = token.print();
 
         token_opt = Some(token);
@@ -477,7 +474,7 @@ pub fn run_app() {
     wasm_logger::init(wasm_logger::Config::default());
     std::panic::set_hook(Box::new(console_error_panic_hook::hook));
 
-    unsafe { log("wasm run_app") }
+    log("wasm run_app")
 }
 
 // based on nom's convert_error
