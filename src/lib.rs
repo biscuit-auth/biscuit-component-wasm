@@ -362,58 +362,36 @@ fn generate_token_inner(query: GenerateToken) -> Result<String, error::Token> {
     let mut builder = Biscuit::builder(&keypair);
 
     if !query.token_blocks.is_empty() {
-        let mut authority_editor = Editor::default();
+        let authority_parsed = parse_source(&query.token_blocks[0])?;
+        for (_, fact) in authority_parsed.facts.iter() {
+            builder.add_authority_fact(fact.clone()).unwrap();
+        }
 
-        match parse_source(&query.token_blocks[0]) {
-            Err(errors) => {
-                error!("error: {:?}", errors);
-                authority_editor.errors = get_parse_errors(&query.token_blocks[0], errors);
-            },
-            Ok(authority_parsed) => {
-                for (_, fact) in authority_parsed.facts.iter() {
-                    builder.add_authority_fact(fact.clone()).unwrap();
-                }
+        for (_, rule) in authority_parsed.rules.iter() {
+            builder.add_authority_rule(rule.clone()).unwrap();
+        }
 
-                for (_, rule) in authority_parsed.rules.iter() {
-                    builder.add_authority_rule(rule.clone()).unwrap();
-                }
-
-                for (i, check) in authority_parsed.checks.iter() {
-                    builder.add_authority_check(check.clone()).unwrap();
-                    let position = get_position(&query.token_blocks[0], i);
-                }
-            }
+        for (_, check) in authority_parsed.checks.iter() {
+            builder.add_authority_check(check.clone()).unwrap();
         }
 
         let mut token = builder.build()?;
 
-        for (i, code) in (&query.token_blocks[1..]).iter().enumerate() {
-            let mut editor = Editor::default();
-            let mut block = Block::default();
-
+        for (_, code) in (&query.token_blocks[1..]).iter().enumerate() {
             let temp_keypair = KeyPair::new();
             let mut builder = token.create_block();
 
-            match parse_source(&code) {
-                Err(errors) => {
-                    error!("error: {:?}", errors);
-                    editor.errors = get_parse_errors(&code, errors);
-                },
-                Ok(block_parsed) => {
-                    for (_, fact) in block_parsed.facts.iter() {
-                        builder.add_fact(fact.clone()).unwrap();
-                    }
+            let block_parsed = parse_source(&code)?;
+            for (_, fact) in block_parsed.facts.iter() {
+                builder.add_fact(fact.clone()).unwrap();
+            }
 
-                    for (_, rule) in block_parsed.rules.iter() {
-                        builder.add_rule(rule.clone()).unwrap();
-                    }
+            for (_, rule) in block_parsed.rules.iter() {
+                builder.add_rule(rule.clone()).unwrap();
+            }
 
-                    for (i, check) in block_parsed.checks.iter() {
-                        builder.add_check(check.clone()).unwrap();
-                        let position = get_position(&code, i);
-                        block.checks.push((position, true));
-                    }
-                }
+            for (_, check) in block_parsed.checks.iter() {
+                builder.add_check(check.clone()).unwrap();
             }
 
             token = token
