@@ -85,10 +85,6 @@ impl ParseErrors {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SourcePosition {
-    pub line_start: usize,
-    pub column_start: usize,
-    pub line_end: usize,
-    pub column_end: usize,
     pub start: usize,
     pub end: usize,
 }
@@ -480,62 +476,12 @@ pub fn run_app() {
 // based on nom's convert_error
 fn get_position(input: &str, span: &str) -> SourcePosition {
     let offset = input.offset(span);
-    let prefix = &input.as_bytes()[..offset];
     let start = offset;
 
-    // Count the number of newlines in the first `offset` bytes of input
-    let line_start = prefix.iter().filter(|&&b| b == b'\n').count();
-
-    // Find the line that includes the subslice:
-    // find the *last* newline before the substring starts
-    let line_begin = prefix
-        .iter()
-        .rev()
-        .position(|&b| b == b'\n')
-        .map(|pos| offset - pos)
-        .unwrap_or(0);
-
-    // Find the full line after that newline
-    let line = input[line_begin..]
-        .lines()
-        .next()
-        .unwrap_or(&input[line_begin..])
-        .trim_end();
-
-    // The (1-indexed) column number is the offset of our substring into that line
-    let column_start = line.offset(span);
-
     let offset = offset + span.len();
-    let prefix = &input.as_bytes()[..offset];
     let end = offset;
 
-    // Count the number of newlines in the first `offset` bytes of input
-    let line_end = prefix.iter().filter(|&&b| b == b'\n').count();
-
-    // Find the line that includes the subslice:
-    // find the *last* newline before the substring starts
-    let line_begin = prefix
-        .iter()
-        .rev()
-        .position(|&b| b == b'\n')
-        .map(|pos| offset - pos)
-        .unwrap_or(0);
-
-    // Find the full line after that newline
-    let line = input[line_begin..]
-        .lines()
-        .next()
-        .unwrap_or(&input[line_begin..])
-        .trim_end();
-
-    // The (1-indexed) column number is the offset of our substring into that line
-    let column_end = line.offset(&span[span.len()..]) + 1;
-
     SourcePosition {
-        line_start,
-        column_start,
-        line_end,
-        column_end,
         start,
         end,
     }
