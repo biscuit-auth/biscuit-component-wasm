@@ -126,7 +126,7 @@ fn execute_inner(query: BiscuitQuery) -> BiscuitResult {
                 authority_editor.errors = get_parse_errors(&query.token_blocks[0], errors);
                 has_errors = true;
             },
-            Ok((_, authority_parsed)) => {
+            Ok(authority_parsed) => {
                 for (_, fact) in authority_parsed.facts.iter() {
                     builder.add_authority_fact(fact.clone()).unwrap();
                 }
@@ -160,7 +160,7 @@ fn execute_inner(query: BiscuitQuery) -> BiscuitResult {
                     editor.errors = get_parse_errors(&code, errors);
                     has_errors = true;
                 },
-                Ok((_, block_parsed)) => {
+                Ok(block_parsed) => {
                     for (_, fact) in block_parsed.facts.iter() {
                         builder.add_fact(fact.clone()).unwrap();
                     }
@@ -216,7 +216,7 @@ fn execute_inner(query: BiscuitQuery) -> BiscuitResult {
             let mut authorizer_checks = Vec::new();
             let mut authorizer_policies = Vec::new();
 
-            let (_, parsed) = res.unwrap();
+            let parsed = res.unwrap();
 
             for (_, fact) in parsed.facts.iter() {
                 authorizer.add_fact(fact.clone()).unwrap();
@@ -369,7 +369,7 @@ fn generate_token_inner(query: GenerateToken) -> Result<String, error::Token> {
                 error!("error: {:?}", errors);
                 authority_editor.errors = get_parse_errors(&query.token_blocks[0], errors);
             },
-            Ok((_, authority_parsed)) => {
+            Ok(authority_parsed) => {
                 for (_, fact) in authority_parsed.facts.iter() {
                     builder.add_authority_fact(fact.clone()).unwrap();
                 }
@@ -399,7 +399,7 @@ fn generate_token_inner(query: GenerateToken) -> Result<String, error::Token> {
                     error!("error: {:?}", errors);
                     editor.errors = get_parse_errors(&code, errors);
                 },
-                Ok((_, block_parsed)) => {
+                Ok(block_parsed) => {
                     for (_, fact) in block_parsed.facts.iter() {
                         builder.add_fact(fact.clone()).unwrap();
                     }
