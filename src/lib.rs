@@ -85,23 +85,6 @@ fn get_position(input: &str, span: &str) -> SourcePosition {
     SourcePosition { start, end }
 }
 
-#[derive(Clone, Debug)]
-struct Block {
-    pub code: String,
-    pub checks: Vec<(SourcePosition, bool)>,
-    pub enabled: bool,
-}
-
-impl Default for Block {
-    fn default() -> Self {
-        Block {
-            code: String::new(),
-            checks: Vec::new(),
-            enabled: true,
-        }
-    }
-}
-
 fn get_parse_errors(input: &str, errors: &[biscuit_auth::parser::Error]) -> Vec<ParseError> {
     let mut res = Vec::new();
 

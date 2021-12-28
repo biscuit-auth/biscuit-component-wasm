@@ -1,4 +1,6 @@
-use crate::{get_parse_errors, get_position, log, Block, Editor, Fact, Marker, ParseErrors};
+use crate::{
+    get_parse_errors, get_position, log, Editor, Fact, Marker, ParseErrors, SourcePosition,
+};
 use biscuit_auth::{
     builder, error,
     parser::{parse_block_source, parse_source},
@@ -37,6 +39,17 @@ impl Default for BiscuitResult {
             authorizer_world: Vec::new(),
             query_result: Vec::new(),
         }
+    }
+}
+
+#[derive(Clone, Debug)]
+struct Block {
+    pub checks: Vec<(SourcePosition, bool)>,
+}
+
+impl Default for Block {
+    fn default() -> Self {
+        Block { checks: Vec::new() }
     }
 }
 
