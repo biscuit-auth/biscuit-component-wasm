@@ -1,12 +1,16 @@
-use biscuit_auth::{Authorizer, AuthorizerLimits, KeyPair, parser::{parse_source, parse_block_source}, error, Biscuit, builder};
+use crate::{get_parse_errors, get_position, log, Block, Editor, Fact, Marker, ParseErrors};
+use biscuit_auth::{
+    builder, error,
+    parser::{parse_block_source, parse_source},
+    Authorizer, AuthorizerLimits, Biscuit, KeyPair,
+};
+use log::*;
+use rand::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::default::Default;
-use rand::prelude::*;
 use wasm_bindgen::prelude::*;
-use log::*;
-use crate::{log, Marker, get_parse_errors, ParseErrors, Fact, get_position, Editor, Block};
 
-    #[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct BiscuitQuery {
     pub token_blocks: Vec<String>,
     pub authorizer_code: Option<String>,

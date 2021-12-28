@@ -5,11 +5,11 @@ use std::default::Default;
 use wasm_bindgen::prelude::*;
 
 mod execute;
-mod parse_token;
 mod generate_token;
+mod parse_token;
 pub use execute::execute;
-pub use parse_token::parse_token;
 pub use generate_token::generate_token;
+pub use parse_token::parse_token;
 
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
@@ -21,8 +21,6 @@ extern "C" {
     #[wasm_bindgen(js_namespace = console)]
     fn log(s: &str);
 }
-
-
 
 #[derive(Default, Serialize, Deserialize)]
 pub struct Editor {
@@ -84,10 +82,7 @@ fn get_position(input: &str, span: &str) -> SourcePosition {
     let offset = offset + span.len();
     let end = offset;
 
-    SourcePosition {
-        start,
-        end,
-    }
+    SourcePosition { start, end }
 }
 
 #[derive(Clone, Debug)]

@@ -1,8 +1,12 @@
-use biscuit_auth::{Biscuit, KeyPair, PrivateKey, error, parser::{parse_block_source, SourceResult}};
+use crate::{get_parse_errors, ParseErrors};
+use biscuit_auth::{
+    error,
+    parser::{parse_block_source, SourceResult},
+    Biscuit, KeyPair, PrivateKey,
+};
 use serde::{Deserialize, Serialize};
 use std::default::Default;
 use wasm_bindgen::prelude::*;
-use crate::{get_parse_errors, ParseErrors}; 
 
 #[derive(Serialize, Deserialize)]
 pub struct GenerateToken {
