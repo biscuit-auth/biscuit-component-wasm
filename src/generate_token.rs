@@ -8,13 +8,13 @@ use serde::{Deserialize, Serialize};
 use std::default::Default;
 use wasm_bindgen::prelude::*;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct GenerateToken {
     pub token_blocks: Vec<String>,
     pub private_key: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum GenerateTokenError {
     Parse(ParseErrors),
     Biscuit(error::Token),

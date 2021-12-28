@@ -10,14 +10,14 @@ use serde::{Deserialize, Serialize};
 use std::default::Default;
 use wasm_bindgen::prelude::*;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct BiscuitQuery {
     pub token_blocks: Vec<String>,
     pub authorizer_code: Option<String>,
     pub query: Option<String>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BiscuitResult {
     pub token_blocks: Vec<Editor>,
     pub token_content: String,

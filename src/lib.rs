@@ -22,24 +22,24 @@ extern "C" {
     fn log(s: &str);
 }
 
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct Editor {
     pub markers: Vec<Marker>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct Marker {
     pub ok: bool,
     pub position: SourcePosition,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct ParseError {
     pub message: String,
     pub position: SourcePosition,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct ParseErrors {
     pub blocks: Vec<Vec<ParseError>>,
     pub authorizer: Vec<ParseError>,
@@ -54,13 +54,13 @@ impl ParseErrors {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Default, Clone, Debug, Serialize, Deserialize)]
 pub struct SourcePosition {
     pub start: usize,
     pub end: usize,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Default, Clone, Debug, Serialize, Deserialize)]
 pub struct Fact {
     pub name: String,
     pub terms: Vec<String>,

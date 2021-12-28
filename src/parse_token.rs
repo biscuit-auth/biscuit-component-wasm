@@ -3,12 +3,12 @@ use serde::{Deserialize, Serialize};
 use std::default::Default;
 use wasm_bindgen::prelude::*;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 struct ParseTokenQuery {
     pub data: String,
 }
 
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 struct ParseResult {
     pub token_blocks: Vec<String>,
     //pub key: String,
