@@ -221,8 +221,8 @@ fn execute_inner(query: BiscuitQuery) -> Result<BiscuitResult, ParseErrors> {
             .collect();
 
         match &authorizer_result {
-            Err(error::Token::FailedLogic(error::Logic::FailedChecks(v))) => {
-                for e in v.iter() {
+            Err(error::Token::FailedLogic(error::Logic::Unauthorized { policy, checks })) => {
+                for e in checks.iter() {
                     match e {
                         error::FailedCheck::Authorizer(error::FailedAuthorizerCheck {
                             check_id,
@@ -244,14 +244,41 @@ fn execute_inner(query: BiscuitQuery) -> Result<BiscuitResult, ParseErrors> {
                         }
                     }
                 }
+                match policy {
+                    error::MatchedPolicy::Deny(index) => {
+                        let position = &authorizer_policies[*index];
+                        if let Some(ed) = biscuit_result.authorizer_editor.as_mut() {
+                            ed.markers.push(Marker {
+                                ok: false,
+                                position: position.clone(),
+                            });
+                        }
+                    }
+                    _ => {}
+                }
             }
-            Err(error::Token::FailedLogic(error::Logic::Deny(index))) => {
-                let position = &authorizer_policies[*index];
-                if let Some(ed) = biscuit_result.authorizer_editor.as_mut() {
-                    ed.markers.push(Marker {
-                        ok: false,
-                        position: position.clone(),
-                    });
+            Err(error::Token::FailedLogic(error::Logic::NoMatchingPolicy { checks })) => {
+                for e in checks.iter() {
+                    match e {
+                        error::FailedCheck::Authorizer(error::FailedAuthorizerCheck {
+                            check_id,
+                            ..
+                        }) => {
+                            authorizer_checks[*check_id as usize].1 = false;
+                        }
+                        error::FailedCheck::Block(error::FailedBlockCheck {
+                            block_id,
+                            check_id,
+                            ..
+                        }) => {
+                            let block = if *block_id == 0 {
+                                &mut authority
+                            } else {
+                                &mut blocks[*block_id as usize - 1]
+                            };
+                            block.checks[*check_id as usize].1 = false;
+                        }
+                    }
                 }
             }
             Ok(index) => {
