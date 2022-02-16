@@ -20,6 +20,22 @@ pub enum GenerateTokenError {
     Biscuit(error::Token),
 }
 
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+pub struct KeyPairJs {
+    pub private_key: String,
+    pub public_key: String,
+}
+
+#[wasm_bindgen]
+pub fn generate_keypair() -> JsValue {
+  let kp = KeyPair::new();
+
+  JsValue::from_serde(&KeyPairJs {
+    private_key: hex::encode(kp.private().to_bytes()),
+    public_key: hex::encode(kp.public().to_bytes()),
+  }).unwrap()
+}
+
 #[wasm_bindgen]
 pub fn generate_token(query: &JsValue) -> Result<String, JsValue> {
     let query: GenerateToken = query.into_serde().unwrap();
