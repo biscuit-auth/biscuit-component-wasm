@@ -4,12 +4,14 @@ use serde::{Deserialize, Serialize};
 use std::default::Default;
 use wasm_bindgen::prelude::*;
 
+mod attenuate;
 mod execute;
 mod generate_token;
 mod parse_token;
 pub use execute::execute;
 pub use generate_token::generate_token;
 pub use parse_token::parse_token;
+pub use attenuate::attenuate_token;
 
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
