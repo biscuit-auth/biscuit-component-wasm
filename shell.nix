@@ -1,5 +1,5 @@
 { pkgs ? import <nixpkgs> {}}: with pkgs;
 
 mkShell {
-  buildInputs = [ rustup ];
+  buildInputs = [ rustup nodejs-16_x ];
 }
