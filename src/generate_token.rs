@@ -1,5 +1,6 @@
 use crate::{get_parse_errors, ParseErrors};
 use biscuit_auth::{
+    builder::BlockBuilder,
     error,
     parser::{parse_block_source, SourceResult},
     Biscuit, KeyPair, PrivateKey,
@@ -28,12 +29,13 @@ pub struct KeyPairJs {
 
 #[wasm_bindgen]
 pub fn generate_keypair() -> JsValue {
-  let kp = KeyPair::new();
+    let kp = KeyPair::new();
 
-  JsValue::from_serde(&KeyPairJs {
-    private_key: hex::encode(kp.private().to_bytes()),
-    public_key: hex::encode(kp.public().to_bytes()),
-  }).unwrap()
+    JsValue::from_serde(&KeyPairJs {
+        private_key: hex::encode(kp.private().to_bytes()),
+        public_key: hex::encode(kp.public().to_bytes()),
+    })
+    .unwrap()
 }
 
 #[wasm_bindgen]
@@ -79,27 +81,27 @@ fn generate_token_from_blocks(
     let data = hex::decode(&query.private_key).map_err(|_| error::Token::InternalError)?;
 
     let keypair = KeyPair::from(PrivateKey::from_bytes(&data)?);
-    let mut builder = Biscuit::builder(&keypair);
+    let mut builder = Biscuit::builder();
 
     let authority_parsed = &blocks[0];
 
     for (_, fact) in authority_parsed.facts.iter() {
-        builder.add_authority_fact(fact.clone()).unwrap();
+        builder.add_fact(fact.clone()).unwrap();
     }
 
     for (_, rule) in authority_parsed.rules.iter() {
-        builder.add_authority_rule(rule.clone()).unwrap();
+        builder.add_rule(rule.clone()).unwrap();
     }
 
     for (_, check) in authority_parsed.checks.iter() {
-        builder.add_authority_check(check.clone()).unwrap();
+        builder.add_check(check.clone()).unwrap();
     }
 
-    let mut token = builder.build()?;
+    let mut token = builder.build(&keypair)?;
 
     for block_parsed in (&blocks[1..]).iter() {
         let temp_keypair = KeyPair::new();
-        let mut builder = token.create_block();
+        let mut builder = BlockBuilder::new();
 
         for (_, fact) in block_parsed.facts.iter() {
             builder.add_fact(fact.clone()).unwrap();

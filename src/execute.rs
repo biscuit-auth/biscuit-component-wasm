@@ -2,7 +2,9 @@ use crate::{
     get_parse_errors, get_position, log, Editor, Fact, Marker, ParseErrors, SourcePosition,
 };
 use biscuit_auth::{
-    builder, error,
+    builder,
+    datalog::SymbolTable,
+    error,
     parser::{parse_block_source, parse_source},
     Authorizer, AuthorizerLimits, Biscuit, KeyPair,
 };
@@ -70,7 +72,7 @@ fn execute_inner(query: BiscuitQuery) -> Result<BiscuitResult, ParseErrors> {
     let mut rng: StdRng = SeedableRng::seed_from_u64(0);
     let root = KeyPair::new_with_rng(&mut rng);
 
-    let mut builder = Biscuit::builder(&root);
+    let mut builder = Biscuit::builder();
 
     let mut authority = Block::default();
     let mut blocks = Vec::new();
@@ -92,15 +94,15 @@ fn execute_inner(query: BiscuitQuery) -> Result<BiscuitResult, ParseErrors> {
                 parse_errors.blocks.push(Vec::new());
 
                 for (_, fact) in authority_parsed.facts.iter() {
-                    builder.add_authority_fact(fact.clone()).unwrap();
+                    builder.add_fact(fact.clone()).unwrap();
                 }
 
                 for (_, rule) in authority_parsed.rules.iter() {
-                    builder.add_authority_rule(rule.clone()).unwrap();
+                    builder.add_rule(rule.clone()).unwrap();
                 }
 
                 for (i, check) in authority_parsed.checks.iter() {
-                    builder.add_authority_check(check.clone()).unwrap();
+                    builder.add_check(check.clone()).unwrap();
                     let position = get_position(&query.token_blocks[0], i);
                     authority.checks.push((position, true));
                 }
@@ -109,13 +111,15 @@ fn execute_inner(query: BiscuitQuery) -> Result<BiscuitResult, ParseErrors> {
 
         biscuit_result.token_blocks.push(Editor::default());
 
-        let mut token = builder.build_with_rng(&mut rng).unwrap();
+        let mut token = builder
+            .build_with_rng(&root, SymbolTable::new(), &mut rng)
+            .unwrap();
 
         for code in (&query.token_blocks[1..]).iter() {
             let mut block = Block::default();
 
             let temp_keypair = KeyPair::new_with_rng(&mut rng);
-            let mut builder = token.create_block();
+            let mut builder = builder::BlockBuilder::new();
 
             match parse_block_source(&code) {
                 Err(errors) => {
@@ -327,9 +331,10 @@ fn execute_inner(query: BiscuitQuery) -> Result<BiscuitResult, ParseErrors> {
         if let Some(query) = query.query.as_ref() {
             log(&format!("got query content: {}", query));
 
+            // todo check what the origin should be
             if !query.is_empty() {
                 let query_result: Result<Vec<builder::Fact>, biscuit_auth::error::Token> =
-                    authorizer.query(query.as_str());
+                    authorizer.query(query.as_str(), &[0].iter().collect());
                 match query_result {
                     Err(e) => {
                         log(&format!("query error: {:?}", e));

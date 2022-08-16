@@ -1,4 +1,5 @@
 use biscuit_auth::{
+    builder::BlockBuilder,
     error,
     parser::{parse_block_source, SourceResult},
     UnverifiedBiscuit,
@@ -69,7 +70,7 @@ fn attenuate_token_from_blocks(
 ) -> Result<String, error::Token> {
     let mut output = token.clone();
     for block_parsed in &blocks {
-        let mut builder = token.create_block();
+        let mut builder = BlockBuilder::new();
 
         for (_, fact) in block_parsed.facts.iter() {
             builder.add_fact(fact.clone()).unwrap();
