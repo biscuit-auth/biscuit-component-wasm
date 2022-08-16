@@ -11,8 +11,8 @@ struct ParseTokenQuery {
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 struct ParseResult {
     pub token_blocks: Vec<String>,
-    //pub key: String,
     pub revocation_ids: Vec<String>,
+    pub external_keys: Vec<Option<String>>,
     pub error: Option<String>,
 }
 
@@ -45,10 +45,17 @@ fn parse_token_inner(query: ParseTokenQuery) -> ParseResult {
         .into_iter()
         .map(|v| hex::encode(v))
         .collect();
+
+    let external_keys = token
+        .external_public_keys()
+        .into_iter()
+        .map(|ok| ok.map(|bytes| hex::encode(bytes)))
+        .collect();
+
     ParseResult {
         token_blocks,
-        //key: "".to_string(),
         revocation_ids,
+        external_keys,
         error: None,
     }
 }
