@@ -6,12 +6,13 @@ use wasm_bindgen::prelude::*;
 
 mod attenuate;
 mod execute;
+mod execute_serialized;
 mod generate_token;
 mod parse_token;
+pub use attenuate::attenuate_token;
 pub use execute::execute;
 pub use generate_token::generate_token;
 pub use parse_token::parse_token;
-pub use attenuate::attenuate_token;
 
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
