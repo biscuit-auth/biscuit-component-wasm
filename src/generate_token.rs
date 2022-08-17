@@ -32,8 +32,8 @@ pub fn generate_keypair() -> JsValue {
     let kp = KeyPair::new();
 
     JsValue::from_serde(&KeyPairJs {
-        private_key: hex::encode(kp.private().to_bytes()),
-        public_key: hex::encode(kp.public().to_bytes()),
+        private_key: kp.private().to_bytes_hex(),
+        public_key: kp.public().to_bytes_hex(),
     })
     .unwrap()
 }
@@ -78,9 +78,7 @@ fn generate_token_from_blocks(
     query: &GenerateToken,
     blocks: Vec<SourceResult>,
 ) -> Result<String, error::Token> {
-    let data = hex::decode(&query.private_key).map_err(|_| error::Token::InternalError)?;
-
-    let keypair = KeyPair::from(PrivateKey::from_bytes(&data)?);
+    let keypair = KeyPair::from(PrivateKey::from_bytes_hex(&query.private_key)?);
     let mut builder = Biscuit::builder();
 
     let authority_parsed = &blocks[0];

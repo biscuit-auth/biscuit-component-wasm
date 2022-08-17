@@ -3,7 +3,7 @@ use crate::{
 };
 use biscuit_auth::{
     builder, error, parser::parse_block_source, parser::parse_source, parser::SourceResult,
-    Authorizer, AuthorizerLimits, Biscuit, PublicKey, UnverifiedBiscuit,
+    AuthorizerLimits, Biscuit, PublicKey,
 };
 use serde::{Deserialize, Serialize};
 use std::default::Default;
@@ -66,11 +66,8 @@ pub fn execute_serialized(query: &JsValue) -> JsValue {
 }
 
 fn execute_inner(query: BiscuitQuery) -> Result<BiscuitResult, ExecuteErrors> {
-    let public_key = hex::decode(&query.root_public_key)
-        .map_err(|_| error::Token::InternalError)
-        .and_then(|pk_bytes| {
-            PublicKey::from_bytes(&pk_bytes).map_err(|_| error::Token::InternalError)
-        });
+    let public_key =
+        PublicKey::from_bytes_hex(&query.root_public_key).map_err(|_| error::Token::InternalError);
 
     let deser: Result<Biscuit, error::Token> = public_key
         .clone()
