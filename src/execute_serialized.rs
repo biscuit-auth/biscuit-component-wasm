@@ -65,7 +65,7 @@ pub fn execute_serialized(query: &JsValue) -> JsValue {
     JsValue::from_serde(&result).unwrap()
 }
 
-fn execute_inner(query: BiscuitQuery) -> Result<BiscuitResult, ExecuteErrors> {
+pub fn execute_inner(query: BiscuitQuery) -> Result<BiscuitResult, ExecuteErrors> {
     let public_key =
         PublicKey::from_bytes_hex(&query.root_public_key).map_err(|_| error::Token::InternalError);
 

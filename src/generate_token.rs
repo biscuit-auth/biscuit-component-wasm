@@ -46,7 +46,7 @@ pub fn generate_token(query: &JsValue) -> Result<String, JsValue> {
     generate_token_inner(query).map_err(|e| JsValue::from_serde(&e).unwrap())
 }
 
-fn generate_token_inner(query: GenerateToken) -> Result<String, GenerateTokenError> {
+pub fn generate_token_inner(query: GenerateToken) -> Result<String, GenerateTokenError> {
     let mut parse_errors = ParseErrors::new();
     let mut blocks = Vec::new();
     let mut has_errors = false;

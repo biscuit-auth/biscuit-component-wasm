@@ -1,3 +1,5 @@
+use crate::execute_serialized;
+use crate::generate_token;
 use crate::{
     get_parse_errors, get_position, log, Editor, Fact, Marker, ParseErrors, SourcePosition,
 };
@@ -17,6 +19,7 @@ use wasm_bindgen::prelude::*;
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct BiscuitQuery {
     pub token_blocks: Vec<String>,
+    pub external_private_keys: Vec<Option<String>>,
     pub authorizer_code: Option<String>,
     pub query: Option<String>,
 }
@@ -44,17 +47,6 @@ impl Default for BiscuitResult {
     }
 }
 
-#[derive(Clone, Debug)]
-struct Block {
-    pub checks: Vec<(SourcePosition, bool)>,
-}
-
-impl Default for Block {
-    fn default() -> Self {
-        Block { checks: Vec::new() }
-    }
-}
-
 #[wasm_bindgen]
 pub fn execute(query: &JsValue) -> JsValue {
     let query: BiscuitQuery = query.into_serde().unwrap();
@@ -65,298 +57,37 @@ pub fn execute(query: &JsValue) -> JsValue {
 }
 
 fn execute_inner(query: BiscuitQuery) -> Result<BiscuitResult, ParseErrors> {
-    let mut biscuit_result = BiscuitResult::default();
-
-    info!("will generate token");
-
     let mut rng: StdRng = SeedableRng::seed_from_u64(0);
-    let root = KeyPair::new_with_rng(&mut rng);
+    let root_key = KeyPair::new_with_rng(&mut rng);
+    let creation_query = generate_token::GenerateToken {
+        token_blocks: query.token_blocks,
+        external_private_keys: query.external_private_keys,
+        private_key: root_key.private().to_bytes_hex(),
+    };
 
-    let mut builder = Biscuit::builder();
+    let serialized = generate_token::generate_token_inner(creation_query).map_err(|e| match e {
+        generate_token::GenerateTokenError::Parse(e) => e,
+        _ => panic!("Unhandled error happened"),
+    })?;
 
-    let mut authority = Block::default();
-    let mut blocks = Vec::new();
+    let execute_query = execute_serialized::BiscuitQuery {
+        token: serialized.clone(),
+        root_public_key: root_key.public().to_bytes_hex(),
+        authorizer_code: query.authorizer_code.unwrap_or(String::new()),
+        query: query.query,
+    };
 
-    let mut token_opt = None;
-    let mut has_errors = false;
-    let mut parse_errors = ParseErrors::new();
-
-    if !query.token_blocks.is_empty() {
-        match parse_block_source(&query.token_blocks[0]) {
-            Err(errors) => {
-                error!("error: {:?}", errors);
-                parse_errors
-                    .blocks
-                    .push(get_parse_errors(&query.token_blocks[0], &errors));
-                has_errors = true;
-            }
-            Ok(authority_parsed) => {
-                parse_errors.blocks.push(Vec::new());
-
-                for (_, fact) in authority_parsed.facts.iter() {
-                    builder.add_fact(fact.clone()).unwrap();
-                }
-
-                for (_, rule) in authority_parsed.rules.iter() {
-                    builder.add_rule(rule.clone()).unwrap();
-                }
-
-                for (i, check) in authority_parsed.checks.iter() {
-                    builder.add_check(check.clone()).unwrap();
-                    let position = get_position(&query.token_blocks[0], i);
-                    authority.checks.push((position, true));
-                }
-            }
-        }
-
-        biscuit_result.token_blocks.push(Editor::default());
-
-        let mut token = builder
-            .build_with_rng(&root, SymbolTable::new(), &mut rng)
-            .unwrap();
-
-        for code in (&query.token_blocks[1..]).iter() {
-            let mut block = Block::default();
-
-            let temp_keypair = KeyPair::new_with_rng(&mut rng);
-            let mut builder = builder::BlockBuilder::new();
-
-            match parse_block_source(&code) {
-                Err(errors) => {
-                    error!("error: {:?}", errors);
-                    parse_errors.blocks.push(get_parse_errors(&code, &errors));
-                    has_errors = true;
-                }
-                Ok(block_parsed) => {
-                    parse_errors.blocks.push(Vec::new());
-
-                    for (_, fact) in block_parsed.facts.iter() {
-                        builder.add_fact(fact.clone()).unwrap();
-                    }
-
-                    for (_, rule) in block_parsed.rules.iter() {
-                        builder.add_rule(rule.clone()).unwrap();
-                    }
-
-                    for (i, check) in block_parsed.checks.iter() {
-                        builder.add_check(check.clone()).unwrap();
-                        let position = get_position(&code, i);
-                        block.checks.push((position, true));
-                    }
-                }
-            }
-
-            token = token.append_with_keypair(&temp_keypair, builder).unwrap();
-
-            blocks.push(block);
-            biscuit_result.token_blocks.push(Editor::default());
-        }
-
-        biscuit_result.token_content = token.print();
-
-        token_opt = Some(token);
-    }
-
-    if let Some(authorizer_code) = query.authorizer_code.as_ref() {
-        let mut authorizer = match token_opt.as_ref() {
-            Some(token) => token.authorizer().unwrap(),
-            None => Authorizer::new().unwrap(),
-        };
-
-        biscuit_result.authorizer_editor = Some(Editor::default());
-        //info!("authorizer source:\n{}", &authorizer_code);
-
-        let authorizer_result;
-
-        let res = parse_source(&authorizer_code);
-        if let Err(ref errors) = res {
-            parse_errors.authorizer = get_parse_errors(&authorizer_code, errors);
-            has_errors = true;
-        }
-
-        // do not execute if there were parse errors
-        if has_errors {
-            return Err(parse_errors);
-        }
-
-        let mut authorizer_checks = Vec::new();
-        let mut authorizer_policies = Vec::new();
-
-        let parsed = res.unwrap();
-
-        for (_, fact) in parsed.facts.iter() {
-            authorizer.add_fact(fact.clone()).unwrap();
-        }
-
-        for (_, rule) in parsed.rules.iter() {
-            authorizer.add_rule(rule.clone()).unwrap();
-        }
-
-        for (i, check) in parsed.checks.iter() {
-            authorizer.add_check(check.clone()).unwrap();
-            let position = get_position(&authorizer_code, i);
-            // checks are marked as success until they fail
-            authorizer_checks.push((position, true));
-        }
-
-        for (i, policy) in parsed.policies.iter() {
-            authorizer.add_policy(policy.clone()).unwrap();
-            let position = get_position(&authorizer_code, i);
-            // checks are marked as success until they fail
-            authorizer_policies.push(position);
-        }
-
-        let mut limits = AuthorizerLimits::default();
-        limits.max_time = std::time::Duration::from_secs(2);
-        authorizer_result = authorizer.authorize_with_limits(limits);
-
-        let (mut facts, _, _, _) = authorizer.dump();
-        biscuit_result.authorizer_world = facts
-            .drain(..)
-            .map(|mut fact| Fact {
-                name: fact.predicate.name,
-                terms: fact
-                    .predicate
-                    .terms
-                    .drain(..)
-                    .map(|term| term.to_string())
-                    .collect(),
-            })
-            .collect();
-
-        match &authorizer_result {
-            Err(error::Token::FailedLogic(error::Logic::Unauthorized { policy, checks })) => {
-                for e in checks.iter() {
-                    match e {
-                        error::FailedCheck::Authorizer(error::FailedAuthorizerCheck {
-                            check_id,
-                            ..
-                        }) => {
-                            authorizer_checks[*check_id as usize].1 = false;
-                        }
-                        error::FailedCheck::Block(error::FailedBlockCheck {
-                            block_id,
-                            check_id,
-                            ..
-                        }) => {
-                            let block = if *block_id == 0 {
-                                &mut authority
-                            } else {
-                                &mut blocks[*block_id as usize - 1]
-                            };
-                            block.checks[*check_id as usize].1 = false;
-                        }
-                    }
-                }
-                match policy {
-                    error::MatchedPolicy::Deny(index) => {
-                        let position = &authorizer_policies[*index];
-                        if let Some(ed) = biscuit_result.authorizer_editor.as_mut() {
-                            ed.markers.push(Marker {
-                                ok: false,
-                                position: position.clone(),
-                            });
-                        }
-                    }
-                    _ => {}
-                }
-            }
-            Err(error::Token::FailedLogic(error::Logic::NoMatchingPolicy { checks })) => {
-                for e in checks.iter() {
-                    match e {
-                        error::FailedCheck::Authorizer(error::FailedAuthorizerCheck {
-                            check_id,
-                            ..
-                        }) => {
-                            authorizer_checks[*check_id as usize].1 = false;
-                        }
-                        error::FailedCheck::Block(error::FailedBlockCheck {
-                            block_id,
-                            check_id,
-                            ..
-                        }) => {
-                            let block = if *block_id == 0 {
-                                &mut authority
-                            } else {
-                                &mut blocks[*block_id as usize - 1]
-                            };
-                            block.checks[*check_id as usize].1 = false;
-                        }
-                    }
-                }
-            }
-            Ok(index) => {
-                let position = &authorizer_policies[*index];
-                if let Some(ed) = biscuit_result.authorizer_editor.as_mut() {
-                    ed.markers.push(Marker {
-                        ok: true,
-                        position: position.clone(),
-                    });
-                }
-            }
-            _ => {}
-        }
-
-        for (position, result) in authority.checks.iter() {
-            if let Some(ed) = biscuit_result.token_blocks.get_mut(0) {
-                ed.markers.push(Marker {
-                    ok: *result,
-                    position: position.clone(),
-                });
-            }
-        }
-
-        for (id, block) in blocks.iter().enumerate() {
-            for (position, result) in block.checks.iter() {
-                if let Some(ed) = biscuit_result.token_blocks.get_mut(id + 1) {
-                    ed.markers.push(Marker {
-                        ok: *result,
-                        position: position.clone(),
-                    });
-                }
-            }
-        }
-
-        for (position, result) in authorizer_checks.iter() {
-            if let Some(ed) = biscuit_result.authorizer_editor.as_mut() {
-                ed.markers.push(Marker {
-                    ok: *result,
-                    position: position.clone(),
-                });
-            }
-        }
-
-        biscuit_result.authorizer_result = authorizer_result;
-
-        if let Some(query) = query.query.as_ref() {
-            log(&format!("got query content: {}", query));
-
-            // todo check what the origin should be
-            if !query.is_empty() {
-                let query_result: Result<Vec<builder::Fact>, biscuit_auth::error::Token> =
-                    authorizer.query(query.as_str(), &[0].iter().collect());
-                match query_result {
-                    Err(e) => {
-                        log(&format!("query error: {:?}", e));
-                    }
-                    Ok(mut facts) => {
-                        biscuit_result.query_result = facts
-                            .drain(..)
-                            .map(|mut fact| Fact {
-                                name: fact.predicate.name,
-                                terms: fact
-                                    .predicate
-                                    .terms
-                                    .drain(..)
-                                    .map(|term| term.to_string())
-                                    .collect(),
-                            })
-                            .collect();
-                    }
-                }
-            }
-        }
-    }
-
-    Ok(biscuit_result)
+    let execute_results =
+        execute_serialized::execute_inner(execute_query).map_err(|e| ParseErrors {
+            blocks: Vec::new(),
+            authorizer: e.authorizer,
+        })?;
+    Ok(BiscuitResult {
+        token_blocks: execute_results.token_blocks,
+        token_content: serialized,
+        authorizer_editor: Some(execute_results.authorizer_editor),
+        authorizer_result: execute_results.authorizer_result,
+        authorizer_world: execute_results.authorizer_world,
+        query_result: execute_results.query_result,
+    })
 }
