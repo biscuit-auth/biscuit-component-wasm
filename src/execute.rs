@@ -1,16 +1,7 @@
 use crate::execute_serialized;
 use crate::generate_token;
-use crate::{
-    get_parse_errors, get_position, log, Editor, Fact, Marker, ParseErrors, SourcePosition,
-};
-use biscuit_auth::{
-    builder,
-    datalog::SymbolTable,
-    error,
-    parser::{parse_block_source, parse_source},
-    Authorizer, AuthorizerLimits, Biscuit, KeyPair,
-};
-use log::*;
+use crate::{Editor, Fact, ParseErrors};
+use biscuit_auth::{error, KeyPair};
 use rand::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::default::Default;
