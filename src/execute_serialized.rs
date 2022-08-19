@@ -255,7 +255,7 @@ fn perform_authorization(
         // todo check what the origin should be
         if !query.is_empty() {
             let query_result: Result<Vec<builder::Fact>, biscuit_auth::error::Token> =
-                authorizer.query(query.as_str(), &[0].iter().collect());
+                authorizer.query(query.as_str());
             match query_result {
                 Err(e) => {
                     log(&format!("query error: {:?}", e));

@@ -79,7 +79,7 @@ pub fn generate_token_inner(query: GenerateToken) -> Result<String, GenerateToke
                 let res = ok.map(|k| {
                     PrivateKey::from_bytes_hex(&k)
                         .map_err(|_| GenerateTokenError::Biscuit(error::Token::InternalError))
-                        .map(|pk| KeyPair::from(pk))
+                        .map(|pk| KeyPair::from(&pk))
                 });
                 res.transpose()
             })
@@ -98,7 +98,7 @@ fn generate_token_from_blocks(
     blocks: Vec<SourceResult>,
     external_private_keys: Vec<Option<KeyPair>>,
 ) -> Result<String, error::Token> {
-    let keypair = KeyPair::from(PrivateKey::from_bytes_hex(&query.private_key)?);
+    let keypair = KeyPair::from(&PrivateKey::from_bytes_hex(&query.private_key)?);
     let mut builder = Biscuit::builder();
 
     let authority_parsed = &blocks[0];
@@ -138,7 +138,7 @@ fn generate_token_from_blocks(
                 builder.add_check(check.clone()).unwrap();
             }
 
-            let block = req.create_block(epk.private(), builder)?;
+            let block = req.create_block(&epk.private(), builder)?;
             token = token.append_third_party(epk.public(), block)?;
         } else {
             let mut builder = BlockBuilder::new();
