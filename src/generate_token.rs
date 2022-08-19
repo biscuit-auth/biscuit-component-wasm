@@ -1,5 +1,6 @@
 use crate::{get_parse_errors, ParseErrors};
 use biscuit_auth::{
+    builder::BlockBuilder,
     error,
     parser::{parse_block_source, SourceResult},
     Biscuit, KeyPair, PrivateKey,
@@ -12,6 +13,7 @@ use wasm_bindgen::prelude::*;
 pub struct GenerateToken {
     pub token_blocks: Vec<String>,
     pub private_key: String,
+    pub external_private_keys: Vec<Option<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -28,12 +30,13 @@ pub struct KeyPairJs {
 
 #[wasm_bindgen]
 pub fn generate_keypair() -> JsValue {
-  let kp = KeyPair::new();
+    let kp = KeyPair::new();
 
-  JsValue::from_serde(&KeyPairJs {
-    private_key: hex::encode(kp.private().to_bytes()),
-    public_key: hex::encode(kp.public().to_bytes()),
-  }).unwrap()
+    JsValue::from_serde(&KeyPairJs {
+        private_key: kp.private().to_bytes_hex(),
+        public_key: kp.public().to_bytes_hex(),
+    })
+    .unwrap()
 }
 
 #[wasm_bindgen]
@@ -43,7 +46,7 @@ pub fn generate_token(query: &JsValue) -> Result<String, JsValue> {
     generate_token_inner(query).map_err(|e| JsValue::from_serde(&e).unwrap())
 }
 
-fn generate_token_inner(query: GenerateToken) -> Result<String, GenerateTokenError> {
+pub fn generate_token_inner(query: GenerateToken) -> Result<String, GenerateTokenError> {
     let mut parse_errors = ParseErrors::new();
     let mut blocks = Vec::new();
     let mut has_errors = false;
@@ -68,52 +71,91 @@ fn generate_token_inner(query: GenerateToken) -> Result<String, GenerateTokenErr
     if has_errors {
         Err(GenerateTokenError::Parse(parse_errors))
     } else {
-        generate_token_from_blocks(&query, blocks).map_err(GenerateTokenError::Biscuit)
+        let private_keys: Result<Vec<Option<KeyPair>>, GenerateTokenError> = query
+            .external_private_keys
+            .clone()
+            .into_iter()
+            .map(|ok| {
+                let res = ok.map(|k| {
+                    PrivateKey::from_bytes_hex(&k)
+                        .map_err(|_| GenerateTokenError::Biscuit(error::Token::InternalError))
+                        .map(|pk| KeyPair::from(&pk))
+                });
+                res.transpose()
+            })
+            .collect();
+        match private_keys {
+            Ok(pks) => {
+                generate_token_from_blocks(&query, blocks, pks).map_err(GenerateTokenError::Biscuit)
+            }
+            Err(e) => Err(e),
+        }
     }
 }
 
 fn generate_token_from_blocks(
     query: &GenerateToken,
     blocks: Vec<SourceResult>,
+    external_private_keys: Vec<Option<KeyPair>>,
 ) -> Result<String, error::Token> {
-    let data = hex::decode(&query.private_key).map_err(|_| error::Token::InternalError)?;
-
-    let keypair = KeyPair::from(PrivateKey::from_bytes(&data)?);
-    let mut builder = Biscuit::builder(&keypair);
+    let keypair = KeyPair::from(&PrivateKey::from_bytes_hex(&query.private_key)?);
+    let mut builder = Biscuit::builder();
 
     let authority_parsed = &blocks[0];
 
     for (_, fact) in authority_parsed.facts.iter() {
-        builder.add_authority_fact(fact.clone()).unwrap();
+        builder.add_fact(fact.clone()).unwrap();
     }
 
     for (_, rule) in authority_parsed.rules.iter() {
-        builder.add_authority_rule(rule.clone()).unwrap();
+        builder.add_rule(rule.clone()).unwrap();
     }
 
     for (_, check) in authority_parsed.checks.iter() {
-        builder.add_authority_check(check.clone()).unwrap();
+        builder.add_check(check.clone()).unwrap();
     }
 
-    let mut token = builder.build()?;
+    let mut token = builder.build(&keypair)?;
 
-    for block_parsed in (&blocks[1..]).iter() {
-        let temp_keypair = KeyPair::new();
-        let mut builder = token.create_block();
+    for i in 1..blocks.len() {
+        let block_parsed = &blocks[i];
+        let external_key = external_private_keys.get(i);
 
-        for (_, fact) in block_parsed.facts.iter() {
-            builder.add_fact(fact.clone()).unwrap();
+        if let Some(Some(epk)) = &external_key {
+            let req = token.third_party_request()?;
+
+            let mut builder = BlockBuilder::new();
+
+            for (_, fact) in block_parsed.facts.iter() {
+                builder.add_fact(fact.clone()).unwrap();
+            }
+
+            for (_, rule) in block_parsed.rules.iter() {
+                builder.add_rule(rule.clone()).unwrap();
+            }
+
+            for (_, check) in block_parsed.checks.iter() {
+                builder.add_check(check.clone()).unwrap();
+            }
+
+            let block = req.create_block(&epk.private(), builder)?;
+            token = token.append_third_party(epk.public(), block)?;
+        } else {
+            let mut builder = BlockBuilder::new();
+
+            for (_, fact) in block_parsed.facts.iter() {
+                builder.add_fact(fact.clone()).unwrap();
+            }
+
+            for (_, rule) in block_parsed.rules.iter() {
+                builder.add_rule(rule.clone()).unwrap();
+            }
+
+            for (_, check) in block_parsed.checks.iter() {
+                builder.add_check(check.clone()).unwrap();
+            }
+            token = token.append(builder)?;
         }
-
-        for (_, rule) in block_parsed.rules.iter() {
-            builder.add_rule(rule.clone()).unwrap();
-        }
-
-        for (_, check) in block_parsed.checks.iter() {
-            builder.add_check(check.clone()).unwrap();
-        }
-
-        token = token.append_with_keypair(&temp_keypair, builder)?;
     }
     Ok(token.to_base64()?)
 }
