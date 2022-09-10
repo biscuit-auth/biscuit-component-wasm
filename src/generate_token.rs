@@ -20,6 +20,7 @@ pub struct GenerateToken {
 pub enum GenerateTokenError {
     Parse(ParseErrors),
     Biscuit(error::Token),
+    KeyPairError(error::Format),
 }
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
@@ -37,6 +38,14 @@ pub fn generate_keypair() -> JsValue {
         public_key: kp.public().to_bytes_hex(),
     })
     .unwrap()
+}
+
+#[wasm_bindgen]
+pub fn get_public_key(private_key: String) -> Result<String, JsValue> {
+    let private = PrivateKey::from_bytes_hex(private_key.as_str())
+        .map_err(|err| JsValue::from_serde(&GenerateTokenError::KeyPairError(err)).unwrap())?;
+    let public = private.public();
+    Ok(public.to_bytes_hex())
 }
 
 #[wasm_bindgen]
