@@ -11,7 +11,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 wasm-bindgen = { version = "0.2.67", features = ["serde-serialize"] }
-biscuit-auth = { git = "https://github.com/biscuit-auth/biscuit-rust", branch = "master", features = ["wasm", "serde-error"] }
+biscuit-auth = { git = "https://github.com/biscuit-auth/biscuit-rust", branch = "main", features = ["wasm", "serde-error"] }
 biscuit-parser= { git = "https://github.com/biscuit-auth/biscuit-rust", branch = "master", features = ["serde-error"] }
 rand = "0.7"
 log = "0.4"

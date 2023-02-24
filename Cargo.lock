@@ -25,11 +25,11 @@ checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
 
 [[package]]
 name = "biscuit-auth"
-version = "3.0.0-alpha1"
-source = "git+https://github.com/biscuit-auth/biscuit-rust?branch=master#f38d100da35605464fa4423f0cbd3c71463d5c39"
+version = "3.0.0-alpha4"
+source = "git+https://github.com/biscuit-auth/biscuit-rust?branch=main#b723c633f10f587f93b3fa9365e376b60859aa9c"
 dependencies = [
  "base64",
- "biscuit-parser",
+ "biscuit-parser 0.1.0-alpha4",
  "biscuit-quote",
  "ed25519-dalek",
  "getrandom",
@@ -62,12 +62,27 @@ dependencies = [
 ]
 
 [[package]]
-name = "biscuit-quote"
-version = "0.2.0-alpha1"
-source = "git+https://github.com/biscuit-auth/biscuit-rust?branch=master#f38d100da35605464fa4423f0cbd3c71463d5c39"
+name = "biscuit-parser"
+version = "0.1.0-alpha4"
+source = "git+https://github.com/biscuit-auth/biscuit-rust?branch=main#b723c633f10f587f93b3fa9365e376b60859aa9c"
 dependencies = [
- "biscuit-parser",
+ "hex",
+ "nom",
+ "proc-macro2",
+ "quote",
+ "serde",
+ "thiserror",
+ "time",
+]
+
+[[package]]
+name = "biscuit-quote"
+version = "0.2.0-alpha5"
+source = "git+https://github.com/biscuit-auth/biscuit-rust?branch=main#b723c633f10f587f93b3fa9365e376b60859aa9c"
+dependencies = [
+ "biscuit-parser 0.1.0-alpha4",
  "proc-macro-error",
+ "proc-macro2",
  "quote",
  "syn",
 ]
@@ -78,7 +93,7 @@ version = "0.4.0-alpha1"
 dependencies = [
  "base64",
  "biscuit-auth",
- "biscuit-parser",
+ "biscuit-parser 0.1.0-alpha1",
  "console_error_panic_hook",
  "hex",
  "log",
