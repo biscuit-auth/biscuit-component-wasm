@@ -71,7 +71,7 @@ pub fn execute_inner(query: BiscuitQuery) -> Result<BiscuitResult, ExecuteErrors
 
     let deser: Result<Biscuit, error::Token> = public_key
         .clone()
-        .and_then(|pk| Biscuit::from_base64(&query.token, |_| pk));
+        .and_then(|pk| Biscuit::from_base64(&query.token, pk));
 
     let authorizer = parse_authorizer(&query.authorizer_code);
 
