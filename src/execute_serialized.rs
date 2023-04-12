@@ -46,15 +46,9 @@ pub struct ExecuteErrors {
     pub authorizer: Vec<ParseError>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 struct Block {
     pub checks: Vec<(SourcePosition, bool)>,
-}
-
-impl Default for Block {
-    fn default() -> Self {
-        Block { checks: Vec::new() }
-    }
 }
 
 #[wasm_bindgen]
@@ -76,19 +70,20 @@ pub fn execute_inner(query: BiscuitQuery) -> Result<BiscuitResult, ExecuteErrors
 
     let authorizer = parse_authorizer(&query.authorizer_code);
 
-    match (&deser, &authorizer) {
-        (Ok(token), Ok(authorizer_source)) => Ok(perform_authorization(
-            &token,
+    if let (Ok(token), Ok(authorizer_source)) = (&deser, &authorizer) {
+        Ok(perform_authorization(
+            token,
             &query.token_blocks,
             &query.authorizer_code,
-            &authorizer_source,
+            authorizer_source,
             &query.query,
-        )),
-        _ => Err(ExecuteErrors {
+        ))
+    } else {
+        Err(ExecuteErrors {
             root_key: public_key.err().map(|e| e.to_string()),
             token: deser.err().map(|e| e.to_string()),
             authorizer: authorizer.err().unwrap_or(Vec::new()),
-        }),
+        })
     }
 }
 
@@ -107,7 +102,7 @@ fn perform_authorization(
         blocks_source = bs.clone();
     } else {
         for i in 0..token.block_count() {
-            blocks_source.push((&token.print_block_source(i).unwrap()).to_string());
+            blocks_source.push(token.print_block_source(i).unwrap().to_string());
         }
     }
 
@@ -115,8 +110,9 @@ fn perform_authorization(
     biscuit_result.token_blocks.push(Editor::default());
 
     let mut blocks = Vec::new();
-    for i in 1..token.block_count() {
-        blocks.push(gather_checks(&blocks_source[i]));
+
+    for bs in blocks_source.iter().skip(1) {
+        blocks.push(gather_checks(bs));
         biscuit_result.token_blocks.push(Editor::default());
     }
 
@@ -134,19 +130,21 @@ fn perform_authorization(
 
     for (i, check) in authorizer_source.checks.iter() {
         authorizer.add_check(check.clone()).unwrap();
-        let position = get_position(&authorizer_code, i);
+        let position = get_position(authorizer_code, i);
         // checks are marked as success until they fail
         authorizer_checks.push((position, true));
     }
 
     for (i, policy) in authorizer_source.policies.iter() {
         authorizer.add_policy(policy.clone()).unwrap();
-        let position = get_position(&authorizer_code, i);
+        let position = get_position(authorizer_code, i);
         authorizer_policies.push(position);
     }
 
-    let mut limits = AuthorizerLimits::default();
-    limits.max_time = std::time::Duration::from_secs(2);
+    let limits = AuthorizerLimits {
+        max_time: std::time::Duration::from_secs(2),
+        ..Default::default()
+    };
     let authorizer_result = authorizer.authorize_with_limits(limits);
 
     // todo extract scope information as well
@@ -187,15 +185,12 @@ fn perform_authorization(
                     }
                 }
             }
-            match policy {
-                error::MatchedPolicy::Deny(index) => {
-                    let position = &authorizer_policies[*index];
-                    biscuit_result.authorizer_editor.markers.push(Marker {
-                        ok: false,
-                        position: position.clone(),
-                    });
-                }
-                _ => {}
+            if let error::MatchedPolicy::Deny(index) = policy {
+                let position = &authorizer_policies[*index];
+                biscuit_result.authorizer_editor.markers.push(Marker {
+                    ok: false,
+                    position: position.clone(),
+                });
             }
         }
         Err(error::Token::FailedLogic(error::Logic::NoMatchingPolicy { checks })) => {
@@ -294,7 +289,7 @@ fn perform_authorization(
 }
 
 fn parse_authorizer(authorizer_code: &str) -> Result<SourceResult, Vec<ParseError>> {
-    parse_source(&authorizer_code).map_err(|errors| get_parse_errors(&authorizer_code, &errors))
+    parse_source(authorizer_code).map_err(|errors| get_parse_errors(authorizer_code, &errors))
 }
 
 // extract checks with their positions

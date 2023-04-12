@@ -28,9 +28,10 @@ pub fn parse_token(query: &JsValue) -> JsValue {
 fn parse_token_inner(query: ParseTokenQuery) -> ParseResult {
     let token = match UnverifiedBiscuit::from_base64(&query.data) {
         Err(e) => {
-            let mut res = ParseResult::default();
-            res.error = Some(e.to_string());
-            return res;
+            return ParseResult {
+                error: Some(e.to_string()),
+                ..Default::default()
+            };
         }
         Ok(t) => t,
     };
@@ -43,13 +44,13 @@ fn parse_token_inner(query: ParseTokenQuery) -> ParseResult {
     let revocation_ids = token
         .revocation_identifiers()
         .into_iter()
-        .map(|v| hex::encode(v))
+        .map(hex::encode)
         .collect();
 
     let external_keys = token
         .external_public_keys()
         .into_iter()
-        .map(|ok| ok.map(|bytes| hex::encode(bytes)))
+        .map(|ok| ok.map(hex::encode))
         .collect();
 
     ParseResult {

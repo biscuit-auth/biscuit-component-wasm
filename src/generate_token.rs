@@ -65,9 +65,9 @@ pub fn generate_token_inner(query: GenerateToken) -> Result<String, GenerateToke
     }
 
     for code in query.token_blocks.iter() {
-        match parse_block_source(&code) {
+        match parse_block_source(code) {
             Err(errors) => {
-                parse_errors.blocks.push(get_parse_errors(&code, &errors));
+                parse_errors.blocks.push(get_parse_errors(code, &errors));
                 has_errors = true;
             }
             Ok(block) => {
@@ -126,8 +126,7 @@ fn generate_token_from_blocks(
 
     let mut token = builder.build(&keypair)?;
 
-    for i in 1..blocks.len() {
-        let block_parsed = &blocks[i];
+    for (i, block_parsed) in blocks.iter().enumerate().skip(1) {
         let external_key = external_private_keys.get(i);
 
         if let Some(Some(epk)) = &external_key {
@@ -166,5 +165,5 @@ fn generate_token_from_blocks(
             token = token.append(builder)?;
         }
     }
-    Ok(token.to_base64()?)
+    token.to_base64()
 }
