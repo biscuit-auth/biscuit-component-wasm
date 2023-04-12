@@ -51,7 +51,7 @@ fn execute_inner(query: BiscuitQuery) -> Result<BiscuitResult, ParseErrors> {
     let mut rng: StdRng = SeedableRng::seed_from_u64(0);
     let root_key = KeyPair::new_with_rng(&mut rng);
     let creation_query = generate_token::GenerateToken {
-        token_blocks: query.token_blocks,
+        token_blocks: query.token_blocks.clone(),
         external_private_keys: query.external_private_keys,
         private_key: root_key.private().to_bytes_hex(),
     };
@@ -63,6 +63,7 @@ fn execute_inner(query: BiscuitQuery) -> Result<BiscuitResult, ParseErrors> {
 
     let execute_query = execute_serialized::BiscuitQuery {
         token: serialized.clone(),
+        token_blocks: Some(query.token_blocks.clone()),
         root_public_key: root_key.public().to_bytes_hex(),
         authorizer_code: query.authorizer_code.unwrap_or(String::new()),
         query: query.query,

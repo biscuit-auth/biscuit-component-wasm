@@ -12,6 +12,7 @@ use wasm_bindgen::prelude::*;
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct BiscuitQuery {
     pub token: String,
+    pub token_blocks: Option<Vec<String>>,
     pub root_public_key: String,
     pub authorizer_code: String,
     pub query: Option<String>,
@@ -78,6 +79,7 @@ pub fn execute_inner(query: BiscuitQuery) -> Result<BiscuitResult, ExecuteErrors
     match (&deser, &authorizer) {
         (Ok(token), Ok(authorizer_source)) => Ok(perform_authorization(
             &token,
+            &query.token_blocks,
             &query.authorizer_code,
             &authorizer_source,
             &query.query,
@@ -92,18 +94,29 @@ pub fn execute_inner(query: BiscuitQuery) -> Result<BiscuitResult, ExecuteErrors
 
 fn perform_authorization(
     token: &Biscuit,
+    token_blocks: &Option<Vec<String>>,
     authorizer_code: &str,
     authorizer_source: &SourceResult,
     query: &Option<String>,
 ) -> BiscuitResult {
     let mut biscuit_result = BiscuitResult::default();
 
-    let mut authority = gather_checks(&token.print_block_source(0).unwrap());
+    let mut blocks_source = Vec::new();
+
+    if let Some(bs) = token_blocks {
+        blocks_source = bs.clone();
+    } else {
+        for i in 0..token.block_count() {
+            blocks_source.push((&token.print_block_source(i).unwrap()).to_string());
+        }
+    }
+
+    let mut authority = gather_checks(&blocks_source[0]);
     biscuit_result.token_blocks.push(Editor::default());
 
     let mut blocks = Vec::new();
     for i in 1..token.block_count() {
-        blocks.push(gather_checks(&token.print_block_source(i).unwrap()));
+        blocks.push(gather_checks(&blocks_source[i]));
         biscuit_result.token_blocks.push(Editor::default());
     }
 
