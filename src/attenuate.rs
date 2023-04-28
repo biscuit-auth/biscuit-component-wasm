@@ -29,11 +29,11 @@ struct AttenuateTokenResult {
 
 #[wasm_bindgen]
 pub fn attenuate_token(query: &JsValue) -> JsValue {
-    let query = query.into_serde().unwrap();
+    let query = serde_wasm_bindgen::from_value(query.clone()).unwrap();
 
     let result = attenuate_token_inner(query);
 
-    JsValue::from_serde(&result).unwrap()
+    serde_wasm_bindgen::to_value(&result).unwrap()
 }
 
 fn attenuate_token_inner(query: AttenuateTokenQuery) -> Result<String, AttenuationError> {
