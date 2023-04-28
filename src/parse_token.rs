@@ -18,11 +18,11 @@ struct ParseResult {
 
 #[wasm_bindgen]
 pub fn parse_token(query: &JsValue) -> JsValue {
-    let query = query.into_serde().unwrap();
+    let query = serde_wasm_bindgen::from_value(query.clone()).unwrap();
 
     let result = parse_token_inner(query);
 
-    JsValue::from_serde(&result).unwrap()
+    serde_wasm_bindgen::to_value(&result).unwrap()
 }
 
 fn parse_token_inner(query: ParseTokenQuery) -> ParseResult {

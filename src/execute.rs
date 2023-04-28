@@ -40,11 +40,11 @@ impl Default for BiscuitResult {
 
 #[wasm_bindgen]
 pub fn execute(query: &JsValue) -> JsValue {
-    let query: BiscuitQuery = query.into_serde().unwrap();
+    let query = serde_wasm_bindgen::from_value(query.clone()).unwrap();
 
     let result = execute_inner(query);
 
-    JsValue::from_serde(&result).unwrap()
+    serde_wasm_bindgen::to_value(&result).unwrap()
 }
 
 fn execute_inner(query: BiscuitQuery) -> Result<BiscuitResult, ParseErrors> {

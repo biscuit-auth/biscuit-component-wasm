@@ -53,11 +53,11 @@ struct Block {
 
 #[wasm_bindgen]
 pub fn execute_serialized(query: &JsValue) -> JsValue {
-    let query: BiscuitQuery = query.into_serde().unwrap();
+    let query = serde_wasm_bindgen::from_value(query.clone()).unwrap();
 
     let result = execute_inner(query);
 
-    JsValue::from_serde(&result).unwrap()
+    serde_wasm_bindgen::to_value(&result).unwrap()
 }
 
 pub fn execute_inner(query: BiscuitQuery) -> Result<BiscuitResult, ExecuteErrors> {

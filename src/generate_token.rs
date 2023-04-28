@@ -33,7 +33,7 @@ pub struct KeyPairJs {
 pub fn generate_keypair() -> JsValue {
     let kp = KeyPair::new();
 
-    JsValue::from_serde(&KeyPairJs {
+    serde_wasm_bindgen::to_value(&KeyPairJs {
         private_key: kp.private().to_bytes_hex(),
         public_key: kp.public().to_bytes_hex(),
     })
@@ -42,17 +42,18 @@ pub fn generate_keypair() -> JsValue {
 
 #[wasm_bindgen]
 pub fn get_public_key(private_key: String) -> Result<String, JsValue> {
-    let private = PrivateKey::from_bytes_hex(private_key.as_str())
-        .map_err(|err| JsValue::from_serde(&GenerateTokenError::KeyPairError(err)).unwrap())?;
+    let private = PrivateKey::from_bytes_hex(private_key.as_str()).map_err(|err| {
+        serde_wasm_bindgen::to_value(&GenerateTokenError::KeyPairError(err)).unwrap()
+    })?;
     let public = private.public();
     Ok(public.to_bytes_hex())
 }
 
 #[wasm_bindgen]
 pub fn generate_token(query: &JsValue) -> Result<String, JsValue> {
-    let query: GenerateToken = query.into_serde().unwrap();
+    let query: GenerateToken = serde_wasm_bindgen::from_value(query.clone()).unwrap();
 
-    generate_token_inner(query).map_err(|e| JsValue::from_serde(&e).unwrap())
+    generate_token_inner(query).map_err(|e| serde_wasm_bindgen::to_value(&e).unwrap())
 }
 
 pub fn generate_token_inner(query: GenerateToken) -> Result<String, GenerateTokenError> {
