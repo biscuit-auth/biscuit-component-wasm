@@ -38,7 +38,12 @@ pub fn inspect_snapshot(query: &JsValue) -> JsValue {
 
 fn inspect_snapshot_inner(query: InspectSnapshotQuery) -> Result<ParseResult, error::Token> {
     let mut authorizer = Authorizer::from_base64_snapshot(&query.data)?;
-    let code = authorizer.dump_code();
+    let code = {
+        let mut new_authorizer = authorizer.clone();
+        // authorizer.to_string() does not show authorizer rules or generated facts. Running authorize() on an authorizer populates them. Here we don't care about the authorization results, we just want to see facts and rules. See https://github.com/biscuit-auth/biscuit-rust/pull/195
+        let _ = new_authorizer.authorize();
+        new_authorizer.to_string()
+    };
     let iterations = authorizer.iterations();
     let elapsed_micros = authorizer.execution_time().as_micros();
 
