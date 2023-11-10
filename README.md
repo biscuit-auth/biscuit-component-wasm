@@ -1,9 +1,8 @@
-# Biscuit playground
+# Backend for biscuit-web-components
 
-This is an example application for [Biscuit tokens](https://github.com/clevercloud/biscuit),
-where you can manipulate tokens and their verification in your browser.
+Biscuit-web-components can't use `biscuit-wasm` directly since it only exposes helpers dedicated to biscuit creation and verification.
 
-build with:
+This library exposes helpers for biscuit inspection, inline error reporting, etc.
 
 ```
 wasm-pack build --scope biscuit-auth --target web --out-dir static --out-name biscuit
