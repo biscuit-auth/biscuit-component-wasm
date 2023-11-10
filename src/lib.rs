@@ -1,3 +1,4 @@
+use biscuit_auth::builder;
 use log::*;
 use nom::Offset;
 use serde::{Deserialize, Serialize};
@@ -8,10 +9,12 @@ mod attenuate;
 mod execute;
 mod execute_serialized;
 mod generate_token;
+mod parse_snapshot;
 mod parse_token;
 pub use attenuate::attenuate_token;
 pub use execute::execute;
 pub use generate_token::generate_token;
+pub use parse_snapshot::inspect_snapshot;
 pub use parse_token::parse_token;
 
 #[global_allocator]
@@ -67,6 +70,20 @@ pub struct SourcePosition {
 pub struct Fact {
     pub name: String,
     pub terms: Vec<String>,
+}
+
+impl From<builder::Fact> for Fact {
+    fn from(value: builder::Fact) -> Self {
+        Fact {
+            name: value.predicate.name,
+            terms: value
+                .predicate
+                .terms
+                .iter()
+                .map(|t| t.to_string())
+                .collect(),
+        }
+    }
 }
 
 #[wasm_bindgen(start)]
